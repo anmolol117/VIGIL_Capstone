@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIGIL — Gate Log</title>
+<style>
+  /* VIGIL theme, Thapar palette (REDESIGN_PLAN.md section 2b, copied here so the page
+     still runs on its own): warm greys, beige in light mode, Thapar red for controls,
+     system colours for data. */
+  :root {
+    color-scheme: light;
+    /* Thapar palette (REDESIGN_PLAN.md section 2b): warm greys, beige, Thapar red */
+    --surface-1:  #FBF8F3;
+    --plane:      #F2ECE3;
+    --ink:        #24201D;
+    --ink-2:      #4B443E;
+    --muted:      #6E655C;
+    --grid:       #E4DCD0;
+    --axis:       #D4CABB;
+    --ring:       #E4DCD0;
+    --inside:     #B3141C;
+    --outside:    #248A3D;
+    --critical:   #D70015;
+    --warning:    #FF9500;
+    --accent:     #B3141C;
+    --accent-hover: #C21A22;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #252322;
+      --plane:     #1B1A19;
+      --ink:       #F3EFEA;
+      --ink-2:     #D5CFC8;
+      --muted:     #9C948C;
+      --grid:      #302D2B;
+      --axis:      #4A4643;
+      --ring:      transparent;
+      --inside:    #D42F35;
+      --accent:    #D42F35;
+      --accent-hover: #DE3E44;
+      --outside:   #30D158;
+      --critical:  #FF453A;
+      --warning:   #FF9F0A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--plane); color: var(--ink);
+    font: 14px/1.5 var(--sans); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+  h2 { font-size: 13px; margin: 0 0 14px; color: var(--ink-2); font-weight: 600; }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--ring);
+    border-radius: 18px; padding: 18px;
+  }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 12px; margin-bottom: 16px; }
+  .kpi .label { color: var(--muted); font-size: 12px; }
+  .kpi .value { font-size: 30px; font-weight: 600; line-height: 1.15; margin-top: 6px;
+                letter-spacing: -0.02em; }
+  .kpi .note  { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .kpi .value.alert { color: var(--critical); }
+  .cols { display: grid; grid-template-columns: 300px 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  .donut-wrap { display: flex; flex-direction: column; align-items: center; }
+  .legend { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .legend .n { margin-left: auto; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  input, select {
+    font: inherit; padding: 7px 10px; border-radius: 10px;
+    border: 1px solid var(--axis); background: var(--surface-1); color: var(--ink);
+  }
+  input#q { flex: 1; min-width: 200px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; line-height: 16.5px;
+       padding: 0 10px 8px; border-bottom: 1px solid var(--grid); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--grid); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .num { font-variant-numeric: tabular-nums; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+          font-weight: 600; }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .scroll { overflow-x: auto; }
+  .flag { font-size: 11px; color: var(--muted); border: 1px solid var(--axis);
+          border-radius: 980px; padding: 1px 7px; }
+  .empty { color: var(--muted); padding: 24px 10px; text-align: center; }
+  button { font: inherit; padding: 8px 14px; border-radius: 980px; cursor: pointer;
+           border: 1px solid var(--axis); background: var(--surface-1); color: var(--ink);
+           transition: background-color .2s, border-color .2s; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  #setup { max-width: 520px; margin: 60px auto; }
+  #setup input { width: 100%; margin: 6px 0 14px; }
+  .warn { background: color-mix(in srgb, var(--warning) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+          border-radius: 12px; padding: 10px 12px; font-size: 13px; margin-bottom: 16px; }
+  button:disabled { opacity: .6; cursor: default; }
+  .dl { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; padding: 6px 13px; }
+  .dl svg { width: 14px; height: 14px; }
+  /* download menu (a popover, placed under its button by script) */
+  .menu { position: fixed; inset: auto; margin: 0; min-width: 176px; padding: 6px; border: 1px solid var(--axis);
+          border-radius: 14px; background: var(--surface-1); color: var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+  .menu p { margin: 6px 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .menu button { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none;
+                 color: inherit; font-size: 14px; text-align: left; }
+  .menu button:hover, .menu button:focus-visible { background: var(--plane); outline: none; }
+  .linkish { background: none; border: 0; color: var(--muted); text-decoration: underline;
+             padding: 0; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div id="setup" hidden>
+    <div class="card">
+      <h1>Connect to Supabase</h1>
+      <p style="color:var(--ink-2)">Stored in this browser only — never written to disk in the project.</p>
+      <div class="warn">
+        Use the <strong>service_role</strong> key. It bypasses every RLS policy, so
+        only ever open this page on your own machine and never host it anywhere.
+      </div>
+      <label>Project URL</label>
+      <input id="s-url" placeholder="https://xxxx.supabase.co">
+      <label>service_role key</label>
+      <input id="s-key" type="password" placeholder="eyJ… or sb_secret_…">
+      <button class="primary" onclick="saveCreds()">Connect</button>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header>
+      <h1>VIGIL — Gate Log</h1>
+      <span class="sub" id="status">loading…</span>
+      <span style="margin-left:auto"></span>
+      <button class="dl" id="dl-btn" popovertarget="dl-menu">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.8 7 8 10.2 11.2 7M2.5 13.5h11"/></svg><span id="dl-label">Download</span></button>
+      <div class="menu" id="dl-menu" popover>
+        <p>Gate log</p>
+        <button data-range="day">Last day</button>
+        <button data-range="week">Last week</button>
+        <button data-range="month">Last month</button>
+        <button data-range="all">All time</button>
+      </div>
+      <button class="linkish" onclick="clearCreds()">change credentials</button>
+    </header>
+
+    <div class="kpis">
+      <div class="card kpi"><div class="label">On campus</div>
+        <div class="value" id="k-inside">–</div><div class="note" id="k-inside-note"></div></div>
+      <div class="card kpi"><div class="label">Off campus</div>
+        <div class="value" id="k-outside">–</div><div class="note">registered vehicles</div></div>
+      <div class="card kpi"><div class="label">Today</div>
+        <div class="value" id="k-today">–</div><div class="note" id="k-today-note"></div></div>
+      <div class="card kpi"><div class="label">Unauthorised inside</div>
+        <div class="value" id="k-unauth">–</div><div class="note" id="k-unauth-note"></div></div>
+      <div class="card kpi"><div class="label">Unknown cards</div>
+        <div class="value" id="k-unreg">–</div><div class="note">last 24 h · not a guard card</div></div>
+      <div class="card kpi"><div class="label">Last scan</div>
+        <div class="value" id="k-last" style="font-size:22px">–</div>
+        <div class="note" id="k-last-note"></div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card donut-wrap">
+        <h2 style="align-self:flex-start">Occupancy</h2>
+        <svg id="donut" viewBox="0 0 160 160" width="170" height="170" role="img"
+             aria-labelledby="donut-title">
+          <title id="donut-title">Vehicles on campus versus off campus</title>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="var(--grid)" stroke-width="18"/>
+          <g transform="rotate(-90 80 80)">
+            <circle id="arc-in"  cx="80" cy="80" r="60" fill="none"
+                    stroke="var(--inside)"  stroke-width="18"/>
+            <circle id="arc-out" cx="80" cy="80" r="60" fill="none"
+                    stroke="var(--outside)" stroke-width="18"/>
+          </g>
+          <text id="donut-hero" x="80" y="76" text-anchor="middle"
+                font-size="30" font-weight="650" fill="var(--ink)">0</text>
+          <text x="80" y="95" text-anchor="middle" font-size="11" fill="var(--muted)">on campus</text>
+        </svg>
+        <div class="legend">
+          <div><span class="swatch" style="background:var(--inside)"></span>On campus
+               <span class="n" id="lg-in">0</span></div>
+          <div><span class="swatch" style="background:var(--outside)"></span>Off campus
+               <span class="n" id="lg-out">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Currently on campus</h2>
+        <div class="scroll"><table>
+          <thead><tr><th>Owner</th><th>Plate</th><th>Vehicle</th><th>Role</th><th>Entered</th></tr></thead>
+          <tbody id="inside-rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2>Unauthorised vehicles <span style="text-transform:none;letter-spacing:0;font-weight:400">— guard-logged, no registered tag</span></h2>
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start">
+        <div>
+          <div style="font-size:44px;font-weight:650;letter-spacing:-0.02em;line-height:1"
+               id="u-inside">–</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px">currently on campus</div>
+          <div style="margin-top:14px;font-size:13px;color:var(--ink-2)">
+            <div>Entered <span class="num" id="u-in" style="float:right">–</span></div>
+            <div>Exited <span class="num" id="u-out" style="float:right">–</span></div>
+            <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--grid)">
+              Today <span class="num" id="u-today" style="float:right">–</span></div>
+          </div>
+          <div id="u-warn" class="flag" style="margin-top:12px;display:none;
+               color:var(--critical);border-color:var(--critical)"></div>
+        </div>
+        <div class="scroll"><table>
+          <thead><tr><th>Time</th><th>Direction</th><th>Tag UID</th><th>RSSI</th></tr></thead>
+          <tbody id="u-rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Movements</h2>
+      <div class="filters">
+        <input id="q" placeholder="Search name, plate, vehicle, or tag UID…" oninput="render()">
+        <select id="f-dir" onchange="render()">
+          <option value="">All directions</option>
+          <option value="in">In</option><option value="out">Out</option>
+        </select>
+        <select id="f-role" onchange="render()"><option value="">All roles</option></select>
+        <select id="f-flag" onchange="render()">
+          <option value="">All scans</option>
+          <option value="unreg">Unregistered only</option>
+          <option value="reread">Re-reads only</option>
+        </select>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Time</th><th>Direction</th><th>Owner</th><th>Plate</th>
+                   <th>Vehicle</th><th>Role</th><th>Tag UID</th><th>RSSI</th></tr></thead>
+        <tbody id="move-rows"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let URL_ = localStorage.getItem("vigil_url");
+let KEY_ = localStorage.getItem("vigil_key");
+let presence = [], moves = [], unauth = [], usum = null;
+
+function saveCreds() {
+  const u = $("s-url").value.trim().replace(/\/$/, ""), k = $("s-key").value.trim();
+  if (!u || !k) return alert("Both fields are required.");
+  localStorage.setItem("vigil_url", u); localStorage.setItem("vigil_key", k);
+  URL_ = u; KEY_ = k; boot();
+}
+function clearCreds() {
+  localStorage.removeItem("vigil_url"); localStorage.removeItem("vigil_key");
+  location.reload();
+}
+
+// DB content is untrusted input as far as this page is concerned.
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function api(path, params) {
+  const u = new URL(URL_ + "/rest/v1/" + path);
+  Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u, { headers: { apikey: KEY_, Authorization: "Bearer " + KEY_ } });
+  if (!r.ok) throw new Error(path + ": HTTP " + r.status + " " + (await r.text()).slice(0, 200));
+  return r.json();
+}
+
+function ago(ts) {
+  if (!ts) return "never";
+  const s = (Date.now() - new Date(ts)) / 1000;
+  if (s < 60) return Math.max(0, Math.round(s)) + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+}
+const fmt = ts => ts ? new Date(ts).toLocaleString([], {
+  day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+
+function dirPill(d) {
+  if (!d) return '<span class="pill" style="color:var(--muted)">unknown</span>';
+  const c = d === "in" ? "var(--inside)" : "var(--outside)";
+  return `<span class="pill" style="color:${c}"><span class="dot" style="background:${c}"></span>${d === "in" ? "In" : "Out"}</span>`;
+}
+
+function drawDonut(inside, outside) {
+  const C = 2 * Math.PI * 60, total = inside + outside;
+  const arcIn = $("arc-in"), arcOut = $("arc-out");
+  $("donut-hero").textContent = inside;
+  if (!total) {
+    arcIn.setAttribute("stroke-dasharray", "0 " + C);
+    arcOut.setAttribute("stroke-dasharray", "0 " + C);
+    return;
+  }
+  const li = C * inside / total, lo = C * outside / total;
+  // 2px surface gap between segments, but only when both are actually present.
+  const gap = (inside && outside) ? 2 : 0;
+  arcIn.setAttribute("stroke-dasharray", `${Math.max(li - gap, 0)} ${C - Math.max(li - gap, 0)}`);
+  arcIn.setAttribute("stroke-dashoffset", "0");
+  arcOut.setAttribute("stroke-dasharray", `${Math.max(lo - gap, 0)} ${C - Math.max(lo - gap, 0)}`);
+  arcOut.setAttribute("stroke-dashoffset", -li);
+}
+
+function render() {
+  const inside = presence.filter(p => p.is_inside);
+  const outside = presence.filter(p => !p.is_inside);
+  drawDonut(inside.length, outside.length);
+  $("k-inside").textContent = inside.length;
+  $("k-outside").textContent = outside.length;
+  $("lg-in").textContent = inside.length;
+  $("lg-out").textContent = outside.length;
+  $("k-inside-note").textContent = `of ${presence.length} registered`;
+
+  const dayAgo = Date.now() - 86400e3;
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  const todays = moves.filter(m => new Date(m.logged_at) >= midnight);
+  $("k-today").textContent = todays.length;
+  const tIn = todays.filter(m => m.direction === "in").length;
+  const tOut = todays.filter(m => m.direction === "out").length;
+  const tUnk = todays.length - tIn - tOut;   // unregistered cards have no direction
+  $("k-today-note").textContent =
+    `${tIn} in · ${tOut} out` + (tUnk ? ` · ${tUnk} unknown` : "");
+
+  const unreg = moves.filter(m => !m.plate_number && new Date(m.logged_at) >= dayAgo);
+  $("k-unreg").textContent = unreg.length;
+  $("k-unreg").className = "value" + (unreg.length ? " alert" : "");
+
+  // --- unauthorised vehicles (guard-operated counter) ---
+  const s = usum || { total_in: 0, total_out: 0, currently_inside: 0, today_in: 0, today_out: 0 };
+  $("k-unauth").textContent = s.currently_inside;
+  $("k-unauth-note").textContent = `${s.today_in} in · ${s.today_out} out today`;
+  $("u-inside").textContent = s.currently_inside;
+  $("u-in").textContent = s.total_in;
+  $("u-out").textContent = s.total_out;
+  $("u-today").textContent = s.today_in + s.today_out + " scans";
+
+  // A clamped-at-zero counter means more exits than entries were recorded --
+  // i.e. a missed entry scan. Surface it rather than silently showing 0.
+  const warn = $("u-warn");
+  if (s.total_out > s.total_in) {
+    warn.style.display = "inline-block";
+    warn.textContent = `⚠ ${s.total_out - s.total_in} more exits than entries — a guard entry scan was missed`;
+  } else warn.style.display = "none";
+
+  $("u-rows").innerHTML = unauth.length ? unauth.slice(0, 12).map(u => `<tr>
+      <td class="num">${fmt(u.logged_at)}</td>
+      <td>${dirPill(u.direction)}</td>
+      <td class="num" style="color:var(--ink-2)">${esc(u.rfid_uid)}</td>
+      <td class="num">${u.rssi ?? "—"}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="empty">No unauthorised vehicles logged</td></tr>`;
+
+  const last = moves[0];
+  $("k-last").textContent = ago(last && last.logged_at);
+  $("k-last-note").textContent = last ? fmt(last.logged_at) : "no scans recorded";
+
+  $("inside-rows").innerHTML = inside.length ? inside
+    .sort((a, b) => new Date(a.last_seen) - new Date(b.last_seen))
+    .map(p => `<tr><td>${esc(p.owner_name)}</td><td class="num">${esc(p.plate_number)}</td>
+      <td>${esc(p.vehicle_name || "—")}</td><td>${esc(p.owner_role)}</td>
+      <td class="num">${fmt(p.last_seen)} <span style="color:var(--muted)">(${ago(p.last_seen)})</span></td></tr>`)
+    .join("") : `<tr><td colspan="5" class="empty">Nobody on campus</td></tr>`;
+
+  const q = $("q").value.trim().toLowerCase();
+  const fd = $("f-dir").value, fr = $("f-role").value, ff = $("f-flag").value;
+  const rows = moves.filter(m => {
+    if (fd && m.direction !== fd) return false;
+    if (fr && m.owner_role !== fr) return false;
+    if (ff === "unreg" && m.plate_number) return false;
+    if (ff === "reread" && !m.is_reread) return false;
+    if (!q) return true;
+    return [m.owner_name, m.plate_number, m.vehicle_name, m.rfid_uid, m.owner_role]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
+
+  $("move-rows").innerHTML = rows.length ? rows.map(m => `<tr>
+      <td class="num">${fmt(m.logged_at)}</td>
+      <td>${dirPill(m.direction)} ${m.is_reread ? '<span class="flag">re-read</span>' : ""}</td>
+      <td>${m.owner_name ? esc(m.owner_name) : '<span class="flag">unregistered</span>'}</td>
+      <td class="num">${esc(m.plate_number || "—")}</td>
+      <td>${esc(m.vehicle_name || "—")}</td>
+      <td>${esc(m.owner_role || "—")}</td>
+      <td class="num" style="color:var(--ink-2)">${esc(m.rfid_uid)}</td>
+      <td class="num">${m.rssi ?? "—"}</td></tr>`).join("")
+    : `<tr><td colspan="8" class="empty">No scans match those filters</td></tr>`;
+
+  $("status").textContent = `${presence.length} vehicles · ${moves.length} scans · refreshed ${new Date().toLocaleTimeString()}`;
+}
+
+async function refresh() {
+  try {
+    let usumRows;
+    [presence, moves, unauth, usumRows] = await Promise.all([
+      api("vehicle_presence", { select: "*" }),
+      api("vehicle_movements", { select: "*", order: "logged_at.desc", limit: 500 }),
+      api("unauthorised_events", { select: "*", order: "logged_at.desc", limit: 100 }),
+      api("unauthorised_summary", { select: "*" }),
+    ]);
+    usum = usumRows[0] || null;
+    const roles = [...new Set(presence.map(p => p.owner_role).filter(Boolean))].sort();
+    const sel = $("f-role"), keep = sel.value;
+    sel.innerHTML = '<option value="">All roles</option>' +
+      roles.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+    sel.value = keep;
+    render();
+  } catch (e) {
+    $("status").textContent = "⚠ " + e.message;
+  }
+}
+
+// Download: one gate log CSV in time order, times in IST. `source` keeps the
+// three kinds apart: registered tag, unregistered card (unknown UID, an
+// anomaly) and guard tally (a known unauthorised vehicle the guard counted).
+async function exportBlob(range) {
+  const days = { day: 1, week: 7, month: 30 }[range];
+  const since = days && new Date(Date.now() - days * 864e5).toISOString();
+  const all = async path => {
+    const out = [];
+    for (;;) {   // pages until empty, whatever the server's row cap is
+      const page = await api(path, { select: "*", order: "logged_at.asc,id.asc", offset: out.length, limit: 1000,
+                                     ...(since && { logged_at: "gte." + since }) });
+      if (!page.length) return out;
+      out.push(...page);
+    }
+  };
+  const [tagged, untagged] = await Promise.all([all("vehicle_movements"), all("unauthorised_events")]);
+  const rows = [
+    ...tagged.map(m => [m.logged_at, m.plate_number ? "registered tag" : "unregistered card", m.direction, m.plate_number, m.vehicle_type, m.vehicle_name,
+                        m.owner_name, m.owner_role, m.rfid_uid, m.device_id, m.rssi, m.snr, m.is_reread, ""]),
+    ...untagged.map(u => [u.logged_at, "guard tally", u.direction, "", "", "", "", "", u.rfid_uid,
+                          u.device_id, u.rssi, u.snr, "", u.counter]),
+  ].sort((a, b) => new Date(a[0]) - new Date(b[0]));
+  const ist = t => new Date(t).toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" });   // 2026-11-07 14:03:21
+  const cell = v => {
+    if (v == null) return "";
+    v = String(v);
+    if (/^[=+\-@]/.test(v) && isNaN(v)) v = "'" + v;   // no spreadsheet formulas from database text
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  const head = ["time_ist", "source", "direction", "plate_number", "vehicle_type", "vehicle_name", "owner_name",
+                "owner_role", "rfid_uid", "device_id", "rssi", "snr", "reread", "counter"];
+  const csv = [head, ...rows.map(r => [ist(r[0]), ...r.slice(1)])].map(r => r.map(cell).join(",")).join("\r\n");
+  return new Blob(["﻿" + csv + "\r\n"], { type: "text/csv" });   // BOM: Excel reads it as UTF-8
+}
+const DL_NAME = "gate-log", DL_EXT = "csv";
+$("dl-menu").addEventListener("toggle", e => {
+  if (e.newState !== "open") return;
+  const b = $("dl-btn").getBoundingClientRect(), m = $("dl-menu");
+  m.style.top = b.bottom + 8 + "px";
+  m.style.left = Math.max(8, Math.min(b.left, innerWidth - m.offsetWidth - 8)) + "px";
+});
+$("dl-menu").addEventListener("click", async e => {
+  const range = e.target.closest("button[data-range]")?.dataset.range;
+  if (!range) return;
+  $("dl-menu").hidePopover();
+  const btn = $("dl-btn"), label = $("dl-label");
+  btn.disabled = true; label.textContent = "Preparing…"; btn.title = "";
+  try {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await exportBlob(range));
+    a.download = `${DL_NAME}-${range === "all" ? "all-time" : "last-" + range}-${new Date().toLocaleDateString("en-CA")}.${DL_EXT}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    label.textContent = "Download";
+  } catch (err) {
+    label.textContent = "Download failed"; btn.title = err.message;
+    setTimeout(() => { label.textContent = "Download"; btn.title = ""; }, 4000);
+  }
+  btn.disabled = false;
+});
+
+function boot() {
+  $("setup").hidden = true; $("app").hidden = false;
+  refresh();
+  setInterval(refresh, 10000);   // picks up new scans automatically
+}
+if (URL_ && KEY_) boot(); else $("setup").hidden = false;
+</script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera setup — __LOTCODE__</title>
+<script>
+  // The dashboard's theme choice (dark unless light was picked), before first paint.
+  try { if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (_) {}
+</script>
+<style>
+  /* VIGIL theme, Thapar palette, the same as the operations dashboard: warm greys,
+     beige in light mode, one Thapar red for controls and the selected bay,
+     near-black behind the picture. Dark by default; the dashboard's theme choice
+     carries over. */
+  :root {
+    --accent: #D42F35; --accent-hover: #DE3E44; --on-accent: #FFFFFF; --free: #30D158; --danger: #FF453A;
+    --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --bg: #1B1A19; --surface: #252322; --surface-2: #302D2B; --hover: #302D2B;
+    --line: #3A3735; --line-2: #302D2B; --ink: #F3EFEA; --muted: #9C948C; --body: #B3ACA4;
+    --step-on: #F3EFEA; --step-on-ink: #1B1A19; --done: #30D158;
+    --stage: #0A0A0B; --tools: #1D1D1F; --tools-line: #2C2C2E; --tool: #2C2C2E; --tool-hover: #3A3A3C;
+    --shadow: rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --accent: #B3141C; --accent-hover: #C21A22;
+    --bg: #F2ECE3; --surface: #FBF8F3; --surface-2: #F2ECE3; --hover: #F2ECE3;
+    --line: #D4CABB; --line-2: #E4DCD0; --ink: #24201D; --muted: #6E655C; --body: #4B443E;
+    --step-on: #24201D; --step-on-ink: #FBF8F3; --done: #248A3D; --danger: #D70015;
+    --stage: #1D1D1F; --tools: #2C2C2E; --tools-line: #3A3A3C; --tool: #3A3A3C; --tool-hover: #48484A;
+    --shadow: rgba(0,0,0,.25);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 var(--ui); letter-spacing: -.01em; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button, input { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 11px 20px; background: var(--surface);
+            border-bottom: 1px solid var(--line-2); }
+  .back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none;
+          font-weight: 600; padding: 5px 10px 5px 6px; border-radius: 980px; }
+  .back:hover { color: var(--ink); background: var(--hover); }
+  .back svg { width: 18px; height: 18px; }
+  .title { display: flex; align-items: baseline; gap: 10px; }
+  .title b { font-weight: 600; font-size: 17px; letter-spacing: -.022em; }
+  .meta { color: var(--muted); font: 500 13px/1 var(--mono); }
+  .spacer { flex: 1; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer;
+         padding: 7px 14px; border-radius: 980px; border: 1px solid var(--line); background: var(--surface);
+         font-weight: 600; font-size: 14px; white-space: nowrap; transition: background-color .2s, border-color .2s; }
+  .btn:hover { border-color: var(--muted); background: var(--hover); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.quiet { border-color: transparent; background: none; color: var(--muted); padding-left: 8px; padding-right: 8px; }
+  .btn.quiet:hover { color: var(--ink); background: var(--hover); }
+  .btn.small { padding: 5px 11px; font-size: 13px; }
+  .link { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); font-weight: 600;
+          text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent);
+          text-decoration-thickness: 2px; }
+
+  .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px minmax(0, 1fr); }
+
+  /* ---- steps rail: setting up a camera is a real sequence, so it is numbered ---- */
+  .rail { display: flex; flex-direction: column; min-height: 0; background: var(--surface);
+          border-right: 1px solid var(--line-2); }
+  .steps { list-style: none; margin: 0; padding: 10px 0; overflow-y: auto; flex: 1; }
+  .step { border-bottom: 1px solid var(--line-2); }
+  .step-hd { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px;
+             padding: 13px 20px; border: 0; background: none; cursor: pointer; text-align: left; }
+  .step-hd:hover { background: var(--hover); }
+  .num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+         border: 2px solid var(--line); color: var(--muted); font-weight: 600; font-size: 13px; }
+  .step-title { font-weight: 600; font-size: 15px; }
+  .step-title small { font-weight: 500; color: var(--muted); font-size: 12.5px; margin-left: 4px; }
+  .step-state { color: var(--muted); font: 500 12.5px/1 var(--mono); white-space: nowrap; }
+  .step.complete .num { border-color: var(--done); background: var(--done); color: #fff; }
+  .step.complete .step-state { color: var(--done); }
+  .step.active .num { border-color: var(--step-on); background: var(--step-on); color: var(--step-on-ink); }
+  .step.active { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+  .step-body { display: none; padding: 0 20px 18px 58px; color: var(--body); }
+  .step.active .step-body { display: block; }
+  .step-body p { margin: 0 0 12px; }
+  .keys { margin: 0 0 4px; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; font-size: 13px; color: var(--muted); }
+  kbd { font: 600 11.5px/1 var(--mono); padding: 4px 6px 3px; border-radius: 6px; border: 1px solid var(--line);
+        border-bottom-width: 2px; background: var(--surface); color: var(--ink); text-align: center; min-width: 26px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .form { margin: 4px 0 12px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); }
+  .form label { display: grid; grid-template-columns: 1fr 86px; align-items: center; gap: 10px; margin-bottom: 8px;
+                font-size: 13px; font-weight: 600; }
+  .form label small { display: block; font-weight: 500; color: var(--muted); }
+  .num-in { position: relative; }
+  .num-in input { width: 100%; padding: 6px 26px 6px 9px; border: 1px solid var(--line); border-radius: 10px;
+                  background: var(--bg);
+                  font-family: var(--mono); text-align: right; }
+  .num-in::after { content: "m"; position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+                   color: var(--muted); font: 500 12px var(--mono); }
+
+  .rail-foot { padding: 16px 20px 18px; border-top: 1px solid var(--line-2); display: grid; gap: 12px; }
+  .field span { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
+  .field input { width: 100%; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+  .chk { display: grid; grid-template-columns: 18px 1fr; gap: 9px; align-items: start; cursor: pointer; font-weight: 600; font-size: 13px; }
+  .chk input { margin: 2px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
+  .chk small { display: block; font-weight: 500; color: var(--muted); }
+
+  /* ---- the picture ---- */
+  .canvas-area { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stage); }
+  #wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; }
+  canvas { position: absolute; top: 0; left: 0; }
+  .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--tools);
+             color: #D2D2D7; border-top: 1px solid var(--tools-line); }
+  .toolbar #hint { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toolbar .tb { border: 1px solid var(--tools-line); background: var(--tool); color: #F5F5F7; border-radius: 980px; cursor: pointer;
+                 font-weight: 600; font-size: 13px; padding: 5px 10px; min-width: 34px; }
+  .toolbar .tb:hover { background: var(--tool-hover); }
+  .toolbar .sep { width: 1px; height: 22px; background: var(--tools-line); margin: 0 4px; }
+  .empty-frame { position: absolute; inset: 0; display: grid; place-items: center; color: #A1A1A6;
+                 font-weight: 600; text-align: center; padding: 24px; pointer-events: none; }
+  #toast { position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); max-width: min(560px, 90%);
+           padding: 9px 16px; border-radius: 14px; border-left: 4px solid var(--accent);
+           background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 10px 30px var(--shadow);
+           opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.err { border-left-color: var(--danger); }
+  @media (max-width: 900px) {
+    body { height: auto; min-height: 100%; }
+    .work { grid-template-columns: 1fr; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--line-2); max-height: 48vh; }
+    .canvas-area { height: 62vh; }
+    .topbar { flex-wrap: wrap; padding: 10px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="back calib" id="back" href="/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Dashboard</a>
+  <div class="title"><b>Camera setup</b><span class="meta">__LOTCODE__</span></div>
+  <span class="spacer"></span>
+  <span class="meta" id="save-state"></span>
+  <button class="btn primary" id="save">Save setup</button>
+</header>
+
+<div class="work">
+  <aside class="rail">
+    <ol class="steps">
+      <li class="step" id="step-frame">
+        <button class="step-hd" data-step="frame"><span class="num">1</span><span class="step-title">Reference frame</span><span class="step-state" id="state-frame"></span></button>
+        <div class="step-body">
+          <p id="frame-text">Bays are marked on this picture, and every live frame is lined up against it. Take it when the view is clear, in good light.</p>
+          <div class="row calib"><button class="btn small" id="retake">Retake frame</button></div>
+        </div>
+      </li>
+      <li class="step" id="step-bay">
+        <button class="step-hd" data-step="bay"><span class="num">2</span><span class="step-title">Bays</span><span class="step-state" id="state-bay"></span></button>
+        <div class="step-body">
+          <p>Drag a box over a bay, then drag its corners onto the painted lines. From an angle, bays are slanted: each corner moves on its own.</p>
+          <div class="keys">
+            <kbd>D</kbd><span>Copy the selected bay to the next one along</span>
+            <kbd>Del</kbd><span>Remove the selected bay</span>
+            <kbd>⌘Z</kbd><span>Undo</span>
+          </div>
+        </div>
+      </li>
+      <li class="step" id="step-ground">
+        <button class="step-hd" data-step="ground"><span class="num">3</span><span class="step-title">Ground rectangle</span><span class="step-state" id="state-ground"></span></button>
+        <div class="step-body">
+          <p>Click the 4 corners of a real rectangle on the ground, in order around it. A bay’s painted corners work well. This sets true distances across the whole picture.</p>
+          <div class="form" id="ground-form" hidden>
+            <label><span>Width<small>corner 1 to 2</small></span><span class="num-in"><input id="g-w" type="number" min="0.1" step="0.1" value="2.5"></span></label>
+            <label><span>Length<small>corner 2 to 3</small></span><span class="num-in"><input id="g-l" type="number" min="0.1" step="0.1" value="5"></span></label>
+            <div class="row"><button class="btn small primary" id="g-set">Set ground</button><button class="btn small quiet" id="g-cancel">Cancel</button></div>
+          </div>
+          <div class="form" id="scale-form" hidden>
+            <label><span>Real distance<small id="scale-px"></small></span><span class="num-in"><input id="s-m" type="number" min="0.1" step="0.1" value="5"></span></label>
+            <div class="row"><button class="btn small primary" id="s-set">Set scale</button><button class="btn small quiet" id="s-cancel">Cancel</button></div>
+          </div>
+          <p id="scale-hint" hidden>Click two points a known distance apart.</p>
+          <button class="link" id="use-scale">Camera looks straight down? Use a scale line instead</button>
+        </div>
+      </li>
+      <li class="step" id="step-bound">
+        <button class="step-hd" data-step="bound"><span class="num">4</span><span class="step-title">Lot boundary<small>optional</small></span><span class="step-state" id="state-bound"></span></button>
+        <div class="step-body">
+          <p>Click around the lot’s edge so vehicles outside it aren’t counted as moving in the lot. Press <kbd>Enter</kbd> to finish.</p>
+          <div class="row"><button class="btn small" id="clear-bound">Clear boundary</button></div>
+        </div>
+      </li>
+    </ol>
+    <div class="rail-foot">
+      <label class="field calib"><span>Lot name</span><input id="lot-name" placeholder="Shown in the app" autocomplete="off"></label>
+      <label class="chk"><input type="checkbox" id="replace"><span>Replace saved bays<small>Needed when this lot already has bays. Their event history is cleared; the vehicle log stays.</small></span></label>
+    </div>
+  </aside>
+
+  <section class="canvas-area">
+    <div id="wrap"><canvas id="cv"></canvas><div class="empty-frame" id="empty-frame" hidden></div></div>
+    <div class="toolbar">
+      <span id="hint"></span>
+      <button class="tb" id="undo" title="Undo (⌘Z)">Undo</button>
+      <button class="tb" id="del" title="Remove the selected bay (Del)">Delete bay</button>
+      <button class="tb" id="clear" title="Remove all bays, the ground rectangle and the boundary">Clear all</button>
+      <span class="sep"></span>
+      <button class="tb" id="zoom-out" aria-label="Zoom out">&minus;</button>
+      <button class="tb" id="zoom-fit">Fit</button>
+      <button class="tb" id="zoom-in" aria-label="Zoom in">+</button>
+    </div>
+    <div id="toast" role="status"></div>
+  </section>
+</div>
+
+<script>
+const LOT_CODE = "__LOTCODE__";
+let IMG_W = __IMG_W__, IMG_H = __IMG_H__;
+const PRELOAD = __PRELOAD__;
+// Opened from the dashboard's Calibrate camera button: the frame comes from the
+// live camera and can be retaken, and live counting stays paused while we are here.
+const CAN_CAPTURE = __CAN_CAPTURE__, HAS_FRAME = __HAS_FRAME__;
+const $ = id => document.getElementById(id);
+document.querySelectorAll('.calib').forEach(el => el.hidden = !CAN_CAPTURE);
+$('lot-name').value = __LOTNAME__;
+const img = new Image();
+
+const wrap = $('wrap'), cv = $('cv'), ctx = cv.getContext('2d');
+
+// A bay is four image points going around it. From an angled (wall or pole)
+// camera bays are slanted in perspective, so each corner moves on its own.
+let bays = [];           // [[[x,y] x4], ...] image px
+let boundary = [];       // [[x,y],...] image px
+let ground = null;       // {points: [[x,y] x4], width_m, length_m} - angled cameras
+let mpp = null;          // metres per pixel - top-down cameras only
+let pts = [];            // clicks in progress (ground: 4, scale: 2)
+let pending = null;      // 'ground' | 'scale' while its size form is open
+let mode = 'bay';
+let view = { zoom: 0, panX: 0, panY: 0 };  // 0 => not yet fitted to the canvas
+let framed = false;      // the user zoomed or panned: keep their view on resize
+let sel = -1;            // selected bay index
+let dirty = false;       // unsaved changes
+let frameNote = CAN_CAPTURE ? 'Latest frame' : 'From video';
+let drag = null;
+const undoStack = [];
+
+// ---- coordinate transforms ----
+const toImg = (sx, sy) => [(sx - view.panX) / view.zoom, (sy - view.panY) / view.zoom];
+const toScr = (ix, iy) => [ix * view.zoom + view.panX, iy * view.zoom + view.panY];
+const rect = (x1, y1, x2, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+
+function resize() {
+  cv.width = wrap.clientWidth; cv.height = wrap.clientHeight;
+  // Keep the picture fitted as the window changes, until the user zooms or pans.
+  if (!framed && cv.width && cv.height) fit(); else draw();
+}
+function fit() {
+  const z = Math.min(cv.width / IMG_W, cv.height / IMG_H) * 0.94;
+  view.zoom = z;
+  view.panX = (cv.width - IMG_W * z) / 2;
+  view.panY = (cv.height - IMG_H * z) / 2;
+  draw();
+}
+
+// ---- rendering ----
+const C = { bay: '#30D158', sel: '#D42F35', ground: '#FFFFFF', bound: '#F4A6A9', scale: '#FFFFFF' };
+function polyline(points, close) {
+  ctx.beginPath();
+  points.forEach((p, i) => { const [x, y] = toScr(p[0], p[1]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  if (close) ctx.closePath();
+}
+function dots(points, r) {
+  points.forEach(p => { const [x, y] = toScr(p[0], p[1]); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke(); });
+}
+function chip(text, x, y) {
+  ctx.font = '600 12px ui-monospace, "SF Mono", Menlo, monospace';
+  const w = ctx.measureText(text).width + 14;
+  ctx.fillStyle = 'rgba(29,29,31,.9)'; ctx.beginPath(); ctx.roundRect(x, y - 20, w, 22, 6); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(text, x + 7, y - 4);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.imageSmoothingEnabled = view.zoom < 3;
+  if (img.complete && img.naturalWidth)  // nothing to draw until a frame exists
+    ctx.drawImage(img, view.panX, view.panY, IMG_W * view.zoom, IMG_H * view.zoom);
+  ctx.lineJoin = 'round';
+
+  if (boundary.length) {
+    ctx.setLineDash([2, 5]); ctx.lineWidth = 2; ctx.strokeStyle = C.bound;
+    polyline(boundary, mode !== 'bound'); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.bound; ctx.strokeStyle = '#1D1D1F'; ctx.lineWidth = 1.5; dots(boundary, 4);
+  }
+  if (ground) {
+    ctx.setLineDash([8, 5]); ctx.lineWidth = 2; ctx.strokeStyle = C.ground;
+    polyline(ground.points, true); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.ground; ctx.strokeStyle = '#1D1D1F'; ctx.lineWidth = 1.5; dots(ground.points, 4);
+    const [x, y] = toScr(...ground.points[0]);
+    chip(`${ground.width_m} × ${ground.length_m} m`, x, y - 6);
+  }
+  bays.forEach((b, i) => {
+    const on = i === sel;
+    ctx.lineWidth = on ? 2.5 : 1.75; ctx.strokeStyle = on ? C.sel : C.bay;
+    ctx.fillStyle = on ? 'rgba(10,132,255,.22)' : 'rgba(48,209,88,.18)';
+    polyline(b, true); ctx.fill(); ctx.stroke();
+    if (view.zoom > 1.4) {
+      const [x, y] = toScr(b[0][0], b[0][1]);
+      ctx.font = '600 11px ui-monospace, "SF Mono", Menlo, monospace';
+      ctx.fillStyle = on ? C.sel : '#BFF3D6'; ctx.fillText(String(i + 1), x + 4, y + 13);
+    }
+    if (on) { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1D1D1F'; ctx.lineWidth = 1.5; dots(b, 5); }
+  });
+  if (pts.length) {  // ground or scale clicks in progress
+    ctx.lineWidth = 2; ctx.strokeStyle = C.ground; ctx.setLineDash([8, 5]);
+    polyline(pts, pending === 'ground'); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.sel; ctx.strokeStyle = '#1D1D1F'; ctx.lineWidth = 1.5; dots(pts, 5);
+    pts.forEach(([px, py], i) => { const [x, y] = toScr(px, py); chip(String(i + 1), x + 8, y - 6); });
+  }
+}
+
+// ---- hit testing ----
+function hitCorner(b, ix, iy) {
+  const t = 8 / view.zoom;
+  return b.findIndex(([x, y]) => Math.abs(ix - x) < t && Math.abs(iy - y) < t);
+}
+function inside(b, ix, iy) {
+  const path = new Path2D();
+  b.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y));
+  path.closePath();
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const hit = ctx.isPointInPath(path, ix, iy);  // identity transform: image coords
+  ctx.restore();
+  return hit;
+}
+function pickBay(ix, iy) {
+  for (let i = bays.length - 1; i >= 0; i--) if (inside(bays[i], ix, iy)) return i;
+  return -1;
+}
+
+// ---- undo ----
+function snapshot() {
+  dirty = true;
+  undoStack.push(JSON.stringify({ bays, boundary, ground, mpp }));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function undo() {
+  const s = undoStack.pop(); if (!s) return;
+  ({ bays, boundary, ground, mpp } = JSON.parse(s));
+  sel = Math.min(sel, bays.length - 1); refresh();
+}
+
+// ---- mouse ----
+wrap.addEventListener('mousedown', e => {
+  if (e.button === 2) { framed = true; drag = { pan: true, sx: e.offsetX, sy: e.offsetY, px: view.panX, py: view.panY }; return; }
+  if (pending) return;  // finish the size form first
+  const [ix, iy] = toImg(e.offsetX, e.offsetY);
+
+  if (mode === 'bound') { snapshot(); boundary.push([ix, iy]); refresh(); return; }
+  if (mode === 'ground') { pts.push([ix, iy]); if (pts.length === 4) openForm('ground'); refresh(); return; }
+  if (mode === 'scale') { pts.push([ix, iy]); if (pts.length === 2) openForm('scale'); refresh(); return; }
+
+  // bays
+  if (sel >= 0) {
+    const k = hitCorner(bays[sel], ix, iy);
+    if (k >= 0) { snapshot(); drag = { corner: k }; return; }
+  }
+  const hit = pickBay(ix, iy);
+  if (hit >= 0) {
+    sel = hit; snapshot();
+    drag = { move: true, ox: ix, oy: iy, orig: bays[hit].map(p => [...p]) }; refresh(); return;
+  }
+  snapshot();  // a new bay: starts as a box, corners can then be pulled
+  bays.push(rect(ix, iy, ix, iy));
+  sel = bays.length - 1;
+  drag = { draw: true, x0: ix, y0: iy };
+  refresh();
+});
+wrap.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const [ix, iy] = toImg(e.offsetX, e.offsetY);
+  if (drag.pan) { view.panX = drag.px + (e.offsetX - drag.sx); view.panY = drag.py + (e.offsetY - drag.sy); draw(); return; }
+  if (drag.draw) { bays[sel] = rect(drag.x0, drag.y0, ix, iy); draw(); return; }
+  if (drag.move) { const dx = ix - drag.ox, dy = iy - drag.oy; bays[sel] = drag.orig.map(([x, y]) => [x + dx, y + dy]); draw(); return; }
+  if (drag.corner !== undefined) { bays[sel][drag.corner] = [ix, iy]; draw(); }
+});
+window.addEventListener('mouseup', () => {
+  if (drag && drag.draw) {
+    const [[x1, y1], , [x2, y2]] = bays[sel];
+    if (Math.abs(x2 - x1) < 3 || Math.abs(y2 - y1) < 3) { bays.splice(sel, 1); sel = -1; }
+    refresh();
+  }
+  drag = null;
+});
+wrap.addEventListener('contextmenu', e => e.preventDefault());
+wrap.addEventListener('wheel', e => {
+  e.preventDefault(); framed = true;
+  const [ix, iy] = toImg(e.offsetX, e.offsetY);
+  view.zoom = Math.max(0.1, Math.min(20, view.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+  view.panX = e.offsetX - ix * view.zoom; view.panY = e.offsetY - iy * view.zoom;
+  draw();
+}, { passive: false });
+
+// ---- ground rectangle (angled camera) or scale line (top-down camera) ----
+// The ground rectangle maps the picture to a true top-down plane, so distances
+// are right near and far. Sizes are typed into the form, not a browser prompt.
+function openForm(kind) {
+  pending = kind;
+  $('ground-form').hidden = kind !== 'ground';
+  $('scale-form').hidden = kind !== 'scale';
+  if (kind === 'scale') {
+    $('scale-px').textContent = `${Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]).toFixed(0)} px apart in the picture`;
+  }
+  $(kind === 'ground' ? 'g-w' : 's-m').focus();
+  hint();
+}
+function closeForm() {
+  pending = null; pts = [];
+  $('ground-form').hidden = $('scale-form').hidden = true;
+  setMode('bay');
+}
+$('g-set').onclick = () => {
+  const w = parseFloat($('g-w').value), l = parseFloat($('g-l').value);
+  if (!(w > 0 && l > 0)) return toast('Enter the rectangle’s width and length in metres.', true);
+  snapshot(); ground = { points: pts.map(p => [...p]), width_m: w, length_m: l };
+  toast(`Ground set: ${w} × ${l} m`); closeForm();
+};
+$('s-set').onclick = () => {
+  const m = parseFloat($('s-m').value);
+  if (!(m > 0)) return toast('Enter the real distance in metres.', true);
+  snapshot(); mpp = m / Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]);
+  toast(`Scale set: ${mpp.toFixed(4)} m per pixel`); closeForm();
+};
+$('g-cancel').onclick = $('s-cancel').onclick = closeForm;
+['g-w', 'g-l', 's-m'].forEach(id => $(id).addEventListener('keydown', e => {
+  if (e.key === 'Enter') $(id === 's-m' ? 's-set' : 'g-set').click();
+  if (e.key === 'Escape') closeForm();
+}));
+$('use-scale').onclick = () => setMode(mode === 'scale' ? 'ground' : 'scale');
+
+// ---- keys (never while typing in a field) ----
+window.addEventListener('keydown', e => {
+  if (e.target instanceof Element && e.target.closest('input')) return;
+  if (e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') { if (sel >= 0) { e.preventDefault(); deleteBay(); } }
+  else if (e.key === 'Escape') { if (pending) closeForm(); else { if (mode === 'bound' && boundary.length) { snapshot(); boundary = []; } pts = []; sel = -1; refresh(); } }
+  else if (e.key === 'Enter') { if (mode === 'bound') setMode('bay'); }
+  else if (e.key === 'd' && sel >= 0) {
+    // the next bay along the row: same shape, shifted by the bay's own first edge
+    snapshot();
+    const b = bays[sel], dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
+    bays.push(b.map(([x, y]) => [x + dx, y + dy])); sel = bays.length - 1; refresh();
+  }
+});
+function deleteBay() { if (sel >= 0) { snapshot(); bays.splice(sel, 1); sel = -1; refresh(); } }
+
+// ---- steps ----
+const STEP_OF = { frame: 'frame', bay: 'bay', ground: 'ground', scale: 'ground', bound: 'bound' };
+const HINTS = {
+  frame: 'Retake the frame if the camera has moved or the light has changed.',
+  bay: 'Drag a box over a bay, then drag its corners onto the lines. Right-drag pans, scroll zooms.',
+  ground: 'Click 4 corners of a real rectangle on the ground, in order around it.',
+  scale: 'Click two points a known distance apart.',
+  bound: 'Click around the lot’s edge. Enter finishes, Esc clears.',
+};
+function setMode(m) {
+  mode = m === 'frame' ? 'bay' : m; sel = -1;
+  if (!pending) pts = [];
+  const step = STEP_OF[m];
+  document.querySelectorAll('.step').forEach(li => li.classList.toggle('active', li.id === 'step-' + step));
+  $('scale-hint').hidden = mode !== 'scale' || !!pending;
+  $('use-scale').textContent = mode === 'scale' ? 'Use a ground rectangle instead' : 'Camera looks straight down? Use a scale line instead';
+  hint(m);
+  refresh();
+}
+function hint(m = mode) {
+  $('hint').textContent = pending === 'ground' ? 'Type the rectangle’s size in the panel on the left.'
+    : pending === 'scale' ? 'Type the real distance in the panel on the left.' : HINTS[m];
+}
+document.querySelectorAll('.step-hd').forEach(b => b.onclick = () => { if (!pending) setMode(b.dataset.step); });
+
+function refresh() {
+  const hasFrame = !!(img.complete && img.naturalWidth);
+  const set = (id, text, done) => { $('state-' + id).textContent = text; $('step-' + id).classList.toggle('complete', done); };
+  set('frame', hasFrame ? frameNote : 'None yet', hasFrame);
+  set('bay', bays.length ? `${bays.length} marked` : 'None yet', bays.length > 0);
+  set('ground', ground ? `${ground.width_m} × ${ground.length_m} m` : mpp ? `${mpp.toFixed(3)} m/px` : 'Not set', !!(ground || mpp));
+  set('bound', boundary.length >= 3 ? `${boundary.length} points` : 'Not set', boundary.length >= 3);
+  $('save-state').textContent = dirty ? 'Unsaved changes' : '';
+  $('empty-frame').hidden = hasFrame;
+  draw();
+}
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg; t.className = err ? 'err' : '';
+  t.style.opacity = 1; clearTimeout(t._h);
+  t._h = setTimeout(() => t.style.opacity = 0, err ? 6000 : 3000);
+}
+
+function zoomBy(f) {  // about the centre of the picture area
+  framed = true;
+  const cx = cv.width / 2, cy = cv.height / 2, [ix, iy] = toImg(cx, cy);
+  view.zoom *= f; view.panX = cx - ix * view.zoom; view.panY = cy - iy * view.zoom; draw();
+}
+$('zoom-in').onclick = () => zoomBy(1.25);
+$('zoom-out').onclick = () => zoomBy(1 / 1.25);
+$('zoom-fit').onclick = () => { framed = false; fit(); };
+$('undo').onclick = undo;
+$('del').onclick = deleteBay;
+$('clear-bound').onclick = () => { if (boundary.length) { snapshot(); boundary = []; refresh(); } };
+$('clear').onclick = () => {
+  if (confirm('Remove all bays, the ground rectangle and the boundary?')) {
+    snapshot(); bays = []; boundary = []; ground = null; mpp = null; sel = -1; refresh();
+  }
+};
+$('save').onclick = save;
+window.addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
+
+// ---- save ----
+const r1 = v => Math.round(v * 10) / 10;
+async function save() {
+  if (!bays.length) { setMode('bay'); return toast('Mark at least one bay before saving.', true); }
+  if (!ground && !mpp) { setMode('ground'); return toast('Mark the ground rectangle before saving. It sets real distances.', true); }
+  const payload = {
+    lot_code: LOT_CODE,
+    name: $('lot-name').value,
+    mpp,
+    ground: ground && { ...ground, points: ground.points.map(p => p.map(r1)) },
+    replace: $('replace').checked,
+    boundary: boundary.map(p => p.map(r1)),
+    bays: bays.map(b => b.map(p => p.map(r1))),
+  };
+  $('save').disabled = true; $('save').textContent = 'Saving…';
+  try {
+    const r = await fetch('save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (j.ok) {
+      dirty = false; refresh();
+      $('save-state').textContent = 'Saved';
+      toast(`Saved ${bays.length} bays.` + (CAN_CAPTURE ? ' Go back to the dashboard to start counting.' : ''));
+    } else toast(j.message || 'Saving failed.', true);
+  } catch (err) { toast('Saving failed: ' + err, true); }
+  finally { $('save').disabled = false; $('save').textContent = 'Save setup'; }
+}
+
+// ---- camera ----
+async function retake() {
+  const btn = $('retake');
+  btn.disabled = true; btn.textContent = 'Waiting for a clear picture…';
+  $('empty-frame').textContent = 'Waiting for a clear picture from the camera…';
+  try {
+    const j = await (await fetch('capture', { method: 'POST' })).json();
+    if (!j.ok) {
+      // No picture right now (cooling break?): fall back to the saved reference, if any.
+      if (!img.naturalWidth) { frameNote = 'Saved frame'; img.src = 'frame?t=' + Date.now(); }
+      $('empty-frame').textContent = 'No picture from the camera. Check it’s on, then retake the frame.';
+      return toast(j.message, true);
+    }
+    IMG_W = j.w; IMG_H = j.h; dirty = true;
+    frameNote = 'Taken ' + new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' });
+    img.src = 'frame?t=' + Date.now();
+    toast('New frame. Check the bays still sit on the lines, then save.');
+  } catch (err) { toast('Taking the frame failed: ' + err, true); }
+  finally { btn.disabled = false; btn.textContent = 'Retake frame'; }
+}
+$('retake').onclick = retake;
+$('back').onclick = async e => {
+  e.preventDefault();
+  if (dirty && !confirm('Leave without saving? Your changes will be lost.')) return;
+  dirty = false;
+  await fetch('exit', { method: 'POST' });
+  location.href = '/';
+};
+if (CAN_CAPTURE) setInterval(() => fetch('ping').catch(() => {}), 4000);
+
+// ---- boot ----
+let booted = false;
+function boot() {
+  if (booted) { fit(); refresh(); return; }  // a retaken frame: refit and redraw
+  booted = true;
+  if (PRELOAD && PRELOAD.slots) {
+    bays = PRELOAD.slots.map(s => {
+      if (s.polygon.length === 4) return s.polygon.map(p => [...p]);
+      const xs = s.polygon.map(p => p[0]), ys = s.polygon.map(p => p[1]);
+      return rect(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
+    });
+    if (PRELOAD.boundary && PRELOAD.boundary.length) boundary = PRELOAD.boundary;
+    if (PRELOAD.ground) ground = PRELOAD.ground;
+    else if (PRELOAD.meters_per_pixel) mpp = PRELOAD.meters_per_pixel;
+  }
+  // rAF so the browser has completed layout and the canvas has real dimensions.
+  requestAnimationFrame(() => {
+    resize(); setMode(bays.length ? 'bay' : HAS_FRAME ? 'bay' : 'frame');
+    if (bays.length) toast(`Loaded ${bays.length} saved bays. Adjust them or clear and start again.`);
+    if (!HAS_FRAME) retake();  // first calibration: no reference frame yet
+  });
+}
+img.onload = boot;
+img.onerror = boot;  // frame missing: still show the tools
+if (HAS_FRAME) img.src = 'frame?t=' + Date.now(); else boot();
+window.addEventListener('resize', resize);
+</script>
+</body>
+</html>

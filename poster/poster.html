@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VIGIL Capstone Poster</title>
+<!-- A0 landscape (1189 x 841 mm = 4494 x 3179 CSS px). Export: poster/export.sh -->
+<style>
+  @page { size: 1189mm 841mm; margin: 0; }
+  :root {
+    --bg: #9b99cb;        /* template background */
+    --panel: #b3b1dc;
+    --navy: #232153;      /* template header bars */
+    --beige: #e8e3cd;
+    --flow-bg: #eae8fe;
+    --node: #f2d6d6;
+    --node-line: #b07a80;
+    --arrow: #d9707e;
+    --ink: #111;
+    --grey: #d9d9db;
+    --red: #d91521;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: "Times New Roman", Times, serif; color: var(--ink);
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .poster { width: 4494px; height: 3179px; padding: 46px 50px; display: flex; flex-direction: column; gap: 30px; overflow: hidden; }
+
+  /* ---------- header ---------- */
+  header { display: grid; grid-template-columns: 820px 1fr 380px; gap: 50px; align-items: center; height: 400px; }
+  .team { list-style: none; font-weight: 700; font-size: 52px; line-height: 1.32; }
+  .team li { display: grid; grid-template-columns: 34px 1fr auto; }
+  .team li::before { content: "•"; }
+  .centre { display: flex; flex-direction: column; gap: 22px; }
+  .title { background: #fff; padding: 26px 40px; text-align: center; font-weight: 700; font-size: 86px; line-height: 1.12; }
+  .title small { display: block; font-size: 54px; margin-top: 10px; line-height: 1.15; }
+  .ac { color: var(--red); }
+  .meta { display: flex; gap: 22px; justify-content: center; }
+  .meta div { background: #fff; padding: 10px 34px; font-weight: 700; font-size: 54px; }
+  .logo { height: 380px; justify-self: end; }
+
+  /* ---------- rows ---------- */
+  .row { flex: 1; display: flex; background: var(--panel); min-height: 0; }
+  .tag { width: 104px; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center;
+         writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; line-height: 1.1; }
+  .tag b { font-size: 46px; }
+  .tag small { font-size: 32px; font-weight: 400; letter-spacing: 3px; }
+  .cols { flex: 1; display: grid; grid-template-columns: 880px 1170px 1150px 1fr; gap: 24px; padding: 16px; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+
+  .box { background: #fff; display: flex; flex-direction: column; min-height: 0; }
+  .grow { flex: 1; }
+  .hd { font-size: 46px; font-weight: 700; text-align: center; padding: 4px 12px 6px; line-height: 1.15; }
+  .navy { background: var(--navy); color: #fff; }
+  .beige { background: var(--beige); color: #000; }
+  .bd { padding: 12px 24px 14px; flex: 1; }
+
+  ul.pts { list-style: none; font-size: 33px; line-height: 1.24; text-align: justify; hyphens: auto; }
+  ul.pts li { padding-left: 26px; position: relative; }
+  ul.pts li + li { margin-top: 5px; }
+  ul.pts li::before { content: "•"; position: absolute; left: 2px; }
+
+  /* flowchart */
+  .flow { background: var(--flow-bg); flex: 1; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .chart { flex: 1; display: grid; grid-template-columns: 1fr 44px 1fr 44px 1fr 44px 1fr; grid-template-rows: 1fr 50px 1fr; align-items: stretch; }
+  .n { background: var(--node); border: 3px solid var(--node-line); padding: 8px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  .n b { font-size: 33px; line-height: 1.1; }
+  .n span { font-size: 27px; line-height: 1.15; margin-top: 4px; }
+  .n.end { background: #fff; border-color: var(--navy); }
+  .a { display: flex; align-items: center; justify-content: center; color: var(--arrow); font-size: 60px; font-weight: 700; font-family: Arial, sans-serif; }
+  .note { font-size: 27px; line-height: 1.2; border: 3px dashed var(--node-line); background: #fff; padding: 6px 12px; }
+  .note b { color: var(--navy); }
+  .tech { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 27px; }
+  .tech em { font-style: normal; font-weight: 700; margin-right: 4px; }
+  .tech span { background: #ededed; border: 2px solid #9a98c4; padding: 2px 12px; }
+
+  /* image */
+  .shot { flex: 1; min-height: 0; padding: 12px 12px 0; display: flex; flex-direction: column; }
+  .shot img { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; border: 2px solid #444; }
+  .cap { font-size: 25px; font-style: italic; text-align: center; padding: 6px 4px 8px; line-height: 1.15; }
+
+  /* results table */
+  table { width: 100%; border-collapse: collapse; font-size: 29px; line-height: 1.15; }
+  th, td { border: 2px solid #8f8f99; padding: 5px 10px; text-align: center; }
+  th { background: var(--grey); font-weight: 700; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.key td { font-weight: 700; background: #f3f1ff; }
+  .tnote { font-size: 23px; font-style: italic; margin-top: 6px; line-height: 1.15; }
+  .res .bd { padding: 12px 16px 10px; flex: 0; }
+
+  /* ---------- footer ---------- */
+  footer { height: 290px; display: grid; grid-template-columns: 1fr 1050px; gap: 30px; }
+  .refs { background: var(--beige); display: grid; grid-template-columns: 380px 1fr; align-items: center; }
+  .refs h2 { font-size: 66px; text-align: center; color: var(--navy); }
+  .refs ol { font-size: 25px; line-height: 1.2; padding: 14px 30px 14px 60px; column-count: 2; column-gap: 50px; text-align: justify; }
+  .refs li { break-inside: avoid; margin-bottom: 6px; }
+  .platform { background: var(--navy); color: #fff; padding: 20px 34px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  .platform h2 { font-size: 48px; }
+  .platform p { font-size: 30px; line-height: 1.25; }
+</style>
+</head>
+<body>
+<div class="poster">
+
+<header>
+  <ul class="team">
+    <li>Khushi Garg<span>102306068</span></li>
+    <li>Ishita Vaid<span>102356011</span></li>
+    <li>Ishaan Singh<span>102303382</span></li>
+    <li>Anmol Mangat<span>102303369</span></li>
+  </ul>
+  <div class="centre">
+    <div class="title">VIGIL: <span class="ac">V</span>ehicular <span class="ac">I</span>ntelligence &amp; <span class="ac">G</span>round–UAV <span class="ac">I</span>ntegrated <span class="ac">L</span>ogistics Systems<small>Campus Vehicle Monitoring with Secure RFID–LoRa Gate Logging, Drone-Based Speed Estimation and Smart Parking</small></div>
+    <div class="meta">
+      <div>Group No: CPG-63</div>
+      <div>Mentor: Dr. Sudhanshu Tyagi</div>
+    </div>
+  </div>
+  <img class="logo" src="assets/ti_logo.png" alt="Thapar Institute logo">
+</header>
+
+<!-- ===================== PART 1: GATE ===================== -->
+<section class="row">
+  <div class="tag"><div><small>PART 1</small><br><b>Secure RFID–LoRa Gate Logging</b></div></div>
+  <div class="cols">
+    <div class="col">
+      <div class="box"><h3 class="hd beige">Problem Definition</h3><div class="bd"><ul class="pts">
+        <li>Gate entries are written by hand in registers: slow at peak hours, hard to search and incomplete.</li>
+        <li>RFID gates usually stop at reading the card; a scan lost on the radio or never stored leaves no audit trail.</li>
+        <li>Card IDs sent in plain text can be captured and replayed.</li>
+      </ul></div></div>
+      <div class="box grow"><h3 class="hd navy">Proposed Approach</h3><div class="bd"><ul class="pts">
+        <li>Two RFID cards per vehicle (entry, exit), read by an ESP32 + MFRC522 at the gate.</li>
+        <li>Card ID encrypted with AES-256-GCM and sent over a 433 MHz LoRa link to a laptop gateway.</li>
+        <li>The gate confirms a scan only after the database commits it; a per-device counter and a unique constraint make retries harmless.</li>
+      </ul></div></div>
+    </div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd navy">System Architecture</h3>
+      <div class="flow">
+        <div class="chart">
+          <div class="n"><b>Card tap</b><span>MFRC522 reads UID on ESP32</span></div><div class="a">→</div>
+          <div class="n"><b>Encrypt</b><span>AES-256-GCM + per-device counter</span></div><div class="a">→</div>
+          <div class="n"><b>LoRa 433 MHz</b><span>To receiver ESP32, USB to laptop</span></div><div class="a">→</div>
+          <div class="n"><b>Gateway</b><span>Decrypts and verifies the tag</span></div>
+          <div></div><div></div><div></div><div></div><div></div><div></div><div class="a">↓</div>
+          <div class="n end"><b>Gate LED</b><span>Lit only after the row is stored</span></div><div class="a">←</div>
+          <div class="n"><b>Encrypted ACK</b><span>Back over LoRa</span></div><div class="a">←</div>
+          <div class="n"><b>Commit</b><span>PostgreSQL, unique (device, counter)</span></div><div class="a">←</div>
+          <div class="n"><b>Resolve</b><span>Card → vehicle and direction</span></div>
+        </div>
+        <div class="note"><b>No ACK in 3 s:</b> retry up to 3 times, then queue up to 8 scans and back off 30 s. Guard tally cards count vehicles with no card; unknown cards are flagged separately.</div>
+        <div class="tech"><em>Technologies:</em><span>ESP32</span><span>MFRC522</span><span>SX1276 LoRa</span><span>AES-256-GCM</span><span>Python</span><span>PostgreSQL</span></div>
+      </div>
+    </div></div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd beige">Gate Log Dashboard</h3>
+      <div class="shot"><img src="assets/gate.jpg" alt="VIGIL gate log dashboard">
+        <div class="cap">Live gate log: vehicles on campus, today's entries and exits, unauthorised vehicles (test data)</div></div>
+    </div></div>
+    <div class="col">
+      <div class="box res"><h3 class="hd navy">Measured Latency (n = 27)</h3><div class="bd">
+        <table>
+          <tr><th>Stage</th><th>Median</th></tr>
+          <tr><td>Card detect and UID read</td><td>3.51 ms</td></tr>
+          <tr><td>AES-256-GCM encryption</td><td>0.07 ms</td></tr>
+          <tr><td>LoRa transmission</td><td>77.97 ms</td></tr>
+          <tr><td>Sent → ACK verified</td><td>520.11 ms</td></tr>
+          <tr class="key"><td>Tap → confirmed (end to end)</td><td>604.43 ms</td></tr>
+        </table>
+      </div></div>
+      <div class="box grow"><h3 class="hd navy">Outcomes</h3><div class="bd"><ul class="pts">
+        <li>Read rate per presentation: 100% static and fast, 95.2% tilted or obstructed.</li>
+        <li>All 65 tally and unknown-card presentations classified correctly.</li>
+        <li>No scan lost through a 2-minute gateway outage.</li>
+        <li>The unique constraint absorbed retries on 12.5% of scans that would otherwise be duplicates.</li>
+      </ul></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PART 2: SPEED ===================== -->
+<section class="row">
+  <div class="tag"><div><small>PART 2</small><br><b>Drone-Based Speed Estimation</b></div></div>
+  <div class="cols">
+    <div class="col">
+      <div class="box"><h3 class="hd beige">Problem Definition</h3><div class="bd"><ul class="pts">
+        <li>Speeding on campus roads is noticed only when someone sees it, with no evidence afterwards.</li>
+        <li>Camera speed methods need a metric scale from surveyed distances: a site visit for every camera.</li>
+        <li>A hovering drone has unknown altitude, a shaking camera and uneven frame timing over Wi-Fi.</li>
+      </ul></div></div>
+      <div class="box grow"><h3 class="hd navy">Proposed Approach</h3><div class="bd"><ul class="pts">
+        <li>Scale calibrated from the cars themselves, with no flight metadata.</li>
+        <li>Motion compensation, frame clean-up and camera timestamps remove shake and jitter.</li>
+        <li>Unreliable readings are labelled, not reported; sustained violations are logged once and the 3 nearest guards alerted.</li>
+      </ul></div></div>
+    </div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd navy">System Architecture</h3>
+      <div class="flow">
+        <div class="chart">
+          <div class="n"><b>Drone video</b><span>Overhead RTSP stream over Wi-Fi</span></div><div class="a">→</div>
+          <div class="n"><b>Detect + track</b><span>VisDrone YOLO11 + ByteTrack</span></div><div class="a">→</div>
+          <div class="n"><b>Stabilise</b><span>Register to a reference view</span></div><div class="a">→</div>
+          <div class="n"><b>Project</b><span>Nadir model, scale s = h / f</span></div>
+          <div></div><div></div><div></div><div></div><div></div><div></div><div class="a">↓</div>
+          <div class="n end"><b>Guard Alert app</b><span>Push with evidence photo</span></div><div class="a">←</div>
+          <div class="n"><b>Log + dispatch</b><span>Peak speed, photo, 3 nearest guards</span></div><div class="a">←</div>
+          <div class="n"><b>Reliability gate</b><span>Moving, stopped or unreliable</span></div><div class="a">←</div>
+          <div class="n"><b>Measure</b><span>Least-squares fit over 0.6 s</span></div>
+        </div>
+        <div class="note"><b>Self-calibration, once per flight:</b> 25th percentile of perpendicular car widths matched to W = 1.83 m gives h / f, which feeds the projection step.</div>
+        <div class="tech"><em>Technologies:</em><span>YOLO11</span><span>ByteTrack</span><span>OpenCV</span><span>PyTorch (MPS)</span><span>PostgreSQL</span><span>Flutter + FCM</span></div>
+      </div>
+    </div></div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd beige">Inference Output</h3>
+      <div class="shot"><img src="assets/speed.jpg" alt="Drone frame with tracked vehicles and their speeds">
+        <div class="cap">Overhead drone frame: each tracked vehicle labelled with its measured speed</div></div>
+    </div></div>
+    <div class="col">
+      <div class="box res"><h3 class="hd navy">Shake Correction (600 frames)</h3><div class="bd">
+        <table>
+          <tr><th>Speed chain</th><th>Median error</th><th>Parked cars ≥ 5 km/h</th></tr>
+          <tr><td>No correction</td><td>3.3 km/h</td><td>54%</td></tr>
+          <tr><td>Drift corrector</td><td>2.5 km/h</td><td>32%</td></tr>
+          <tr class="key"><td>Motion compensation</td><td>0.6 km/h</td><td>5%</td></tr>
+        </table>
+        <div class="tnote">Footage degraded to match the drone camera and its recorded shake.</div>
+      </div></div>
+      <div class="box grow"><h3 class="hd navy">Outcomes</h3><div class="bd"><ul class="pts">
+        <li>Camera-clock timing cut the 90th-percentile error from 3.94 to 0.02 km/h.</li>
+        <li>Frame clean-up raised detection recall from 76% to 84%.</li>
+        <li>Live pipeline: about 25 fps at under 100 ms latency.</li>
+        <li>Alerts reached a guard's phone in 0.23 s (median).</li>
+      </ul></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PART 3: PARKING ===================== -->
+<section class="row">
+  <div class="tag"><div><small>PART 3</small><br><b>Smart Parking Occupancy</b></div></div>
+  <div class="cols">
+    <div class="col">
+      <div class="box"><h3 class="hd beige">Problem Definition</h3><div class="bd"><ul class="pts">
+        <li>Drivers circle lots looking for a free bay; nobody knows how full each lot is.</li>
+        <li>An aerial camera drifts, so bay outlines never stay fixed in the image.</li>
+        <li>The low-cost analog camera switches off every few minutes to cool down.</li>
+      </ul></div></div>
+      <div class="box grow"><h3 class="hd navy">Proposed Approach</h3><div class="bd"><ul class="pts">
+        <li>Each lot is annotated once; every frame is registered to that reference image.</li>
+        <li>A vehicle that moves under 1.5 m in 10 s is parked, and its footprint decides the bay.</li>
+        <li>Drivers see free bays per lot in the Campus Parking app.</li>
+      </ul></div></div>
+    </div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd navy">System Architecture</h3>
+      <div class="flow">
+        <div class="chart">
+          <div class="n"><b>Camera</b><span>Drone, or 170° fisheye pole camera</span></div><div class="a">→</div>
+          <div class="n"><b>Register</b><span>ORB + RANSAC homography</span></div><div class="a">→</div>
+          <div class="n"><b>Detect</b><span>VisDrone YOLO, confidence 0.10</span></div><div class="a">→</div>
+          <div class="n"><b>Warp + track</b><span>Into the reference frame, ByteTrack</span></div>
+          <div></div><div></div><div></div><div></div><div></div><div></div><div class="a">↓</div>
+          <div class="n end"><b>Console + app</b><span>Free bays and lot status</span></div><div class="a">←</div>
+          <div class="n"><b>Write</b><span>Changes at once, snapshot every 20 s</span></div><div class="a">←</div>
+          <div class="n"><b>Bay state</b><span>3-sample debounce per bay</span></div><div class="a">←</div>
+          <div class="n"><b>Parked test</b><span>Under 1.5 m moved in 10 s</span></div>
+        </div>
+        <div class="note"><b>Camera off (cool-down):</b> bays keep their last state and the lot shows "no data", never "empty". Writes queue while offline.</div>
+        <div class="tech"><em>Technologies:</em><span>YOLO (VisDrone)</span><span>ByteTrack</span><span>OpenCV ORB</span><span>PostgreSQL</span><span>Flutter</span></div>
+      </div>
+    </div></div>
+    <div class="col"><div class="box grow">
+      <h3 class="hd beige">Parking Console</h3>
+      <div class="shot"><img src="assets/parking.jpg" alt="Campus Parking console with bay overlay">
+        <div class="cap">Demonstration lot: green bays free, red bays taken; live count of spaces free</div></div>
+    </div></div>
+    <div class="col">
+      <div class="box res"><h3 class="hd navy">Lot Status Shown to Drivers</h3><div class="bd">
+        <table>
+          <tr><th>Status</th><th>Share of bays filled</th></tr>
+          <tr><td>Wide open</td><td>0–29%</td></tr>
+          <tr><td>Plenty of space</td><td>30–54%</td></tr>
+          <tr><td>Filling up</td><td>55–79%</td></tr>
+          <tr><td>Almost full</td><td>80–99%</td></tr>
+          <tr><td>Full</td><td>100%</td></tr>
+        </table>
+      </div></div>
+      <div class="box grow"><h3 class="hd navy">Outcomes</h3><div class="bd"><ul class="pts">
+        <li>Runs end to end on a 165-bay lot: video, console, database and app.</li>
+        <li>Works on the live camera through its cool-down gaps.</li>
+        <li>Automated tests cover registration, bay assignment, debounce and outage hold.</li>
+        <li>Next: measure occupancy accuracy against hand-labelled frames.</li>
+      </ul></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="refs">
+    <h2>References</h2>
+    <ol>
+      <li>J. Wisanmongkol, T. Sanpechuda and U. Ketprom, "Automatic vehicle identification with sensor-integrated RFID system," in Proc. ECTI-CON, 2008, pp. 757–760.</li>
+      <li>M. Dworkin, "Recommendation for block cipher modes of operation: Galois/Counter Mode (GCM) and GMAC," NIST SP 800-38D, 2007.</li>
+      <li>D. Mouafo and U. Biaou, "Uncalibrated camera approach for vehicle speed estimation using detection and tracking," Signal, Image and Video Processing, vol. 18, pp. 8819–8827, 2024.</li>
+      <li>P. Zhu et al., "Detection and tracking meet drones challenge," IEEE Trans. Pattern Anal. Mach. Intell., vol. 44, no. 11, pp. 7380–7399, 2022.</li>
+      <li>Y. Zhang et al., "ByteTrack: Multi-object tracking by associating every detection box," in Proc. ECCV, 2022, pp. 1–21.</li>
+      <li>P. R. L. de Almeida et al., "PKLot – A robust dataset for parking lot classification," Expert Systems with Applications, vol. 42, no. 11, pp. 4937–4949, 2015.</li>
+    </ol>
+  </div>
+  <div class="platform">
+    <h2>One Platform</h2>
+    <p>Three independent systems share one cloud PostgreSQL database (17 tables, row-level security on every table), one web console and two Flutter apps: Campus Parking for drivers and Guard Alert for guards. Gate identities and drone tracks are never linked.</p>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+results/*.csv
+!results/FINDINGS.md
+*.hex
+VIGIL_TX_Test/secrets.h

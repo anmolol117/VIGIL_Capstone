@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kestrel</title>
+<style>
+/* Kestrel operator console, in the VIGIL theme's Thapar palette (REDESIGN_PLAN.md
+   section 2b, copied here so the console still runs on its own): warm greys, beige
+   in light mode, one darkish Thapar red for controls, the brighter system red
+   reserved for what needs attention (violations, failures).
+   System fonts only -- the console runs offline on the drone's Wi-Fi. */
+:root{
+  --bg:#F2ECE3; --surface:#FBF8F3; --sunken:#E9E2D7;
+  --ink:#24201D; --ink-2:#4B443E; --muted:#6E655C; --faint:#AAA096;
+  --line:#E4DCD0; --line-strong:#D4CABB;
+  --red:#D70015; --red-wash:#FDECEC;
+  --ok:#248A3D; --ok-wash:#E7F6EC;
+  --warn:#C93400; --warn-wash:#FFF0E5;
+  /* neutral, not the accent: a red "Playback" pill would read as an alert */
+  --info:#4B443E; --info-wash:#E9E2D7;
+  --accent:#B3141C; --accent-hover:#C21A22; --progress:#D42F35;
+  --monitor:#0A0A0B; --monitor-edge:transparent; --on-monitor:#F5F5F7; --monitor-chip:rgba(29,29,31,.72);
+  --sign-red:#FF3B30;
+  --radius:12px;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#1B1A19; --surface:#252322; --sunken:#302D2B;
+    --ink:#F3EFEA; --ink-2:#D5CFC8; --muted:#9C948C; --faint:#6E6862;
+    --line:#302D2B; --line-strong:#4A4643;
+    --red:#FF453A; --red-wash:#3A1714;
+    --ok:#30D158; --ok-wash:#0F2A17;
+    --warn:#FF9F0A; --warn-wash:#33200A;
+    --info:#D5CFC8; --info-wash:#302D2B;
+    --accent:#D42F35; --accent-hover:#DE3E44;
+    --monitor:#0A0A0B; --monitor-edge:#302D2B;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans);
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:.94em}
+.muted{color:var(--muted)}
+[hidden]{display:none!important}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+  height:52px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.brand .mark{width:10px;height:10px;background:var(--red);border-radius:3px}
+.brand b{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.brand .tag{color:var(--muted);padding-left:11px;margin-left:2px;border-left:1px solid var(--line)}
+.site{display:flex;align-items:baseline;gap:8px;min-width:0;color:var(--ink-2);white-space:nowrap}
+.site #src-name{color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 10px;border-radius:12px;
+  font-size:12px;font-weight:600;background:var(--sunken);color:var(--ink-2);white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-wash);color:var(--ok)}
+.pill.ok i{animation:beat 1.8s ease-in-out infinite}
+.pill.warn{background:var(--warn-wash);color:var(--warn)}
+.pill.warn i{animation:beat .9s ease-in-out infinite}
+.pill.bad{background:var(--red-wash);color:var(--red)}
+.pill.info{background:var(--info-wash);color:var(--info)}
+@keyframes beat{50%{opacity:.25}}
+.limit{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap}
+.sign{width:30px;height:30px;flex:none}
+.sign text{font:700 15px var(--sans)}
+.logstate{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+.logstate i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.logstate.ok i{background:var(--ok)}
+.logstate.warn i{background:var(--warn)}
+.logstate.bad{color:var(--red)} .logstate.bad i{background:var(--red)}
+.clock{font-family:var(--mono);font-size:13px;color:var(--ink-2);min-width:64px;text-align:right}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:32px;padding:0 12px;
+  border-radius:980px;border:1px solid var(--line-strong);background:var(--surface);
+  font-weight:500;cursor:pointer;white-space:nowrap;transition:background-color .2s,border-color .2s}
+.btn:hover:not(:disabled){background:var(--sunken)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn svg{width:15px;height:15px;flex:none}
+/* download menu (a popover, placed under its button by script) */
+.menu{position:fixed;inset:auto;margin:0;min-width:176px;padding:6px;border:1px solid var(--line-strong);
+  border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 32px rgba(0,0,0,.18)}
+.menu p{margin:6px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+.menu button{display:block;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:inherit;
+  font:inherit;text-align:left;cursor:pointer}
+.menu button:hover,.menu button:focus-visible{background:var(--sunken);outline:none}
+.linkbtn{background:none;border:0;padding:0;color:var(--ink-2);text-decoration:underline;
+  text-underline-offset:3px;cursor:pointer}
+
+/* ---------- workspace ---------- */
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 312px;gap:20px;padding:20px;
+  max-width:1680px;margin:0 auto}
+.monitor-col{min-width:0}
+.monitor{position:relative;background:var(--monitor);border-radius:var(--radius);overflow:hidden;
+  aspect-ratio:16/9;color:var(--on-monitor);box-shadow:0 0 0 1px var(--monitor-edge)}
+.monitor:fullscreen{aspect-ratio:auto;border-radius:0}
+#vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none;color:transparent} /* hides the alt text while no frame has loaded */
+.hud{position:absolute;z-index:4;display:flex;align-items:center;gap:6px}
+.hud.tl{top:12px;left:12px}
+.hud.tr{top:12px;right:12px}
+.hud.br{bottom:12px;right:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;
+  background:var(--monitor-chip);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  font-size:11.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:#30D158}
+.chip.rec .dot{background:#FF453A;animation:beat 1.4s ease-in-out infinite}
+.chip.amber .dot{background:#FF9F0A}
+.chip.err .dot{background:#FF453A}
+.chip .mono{font-weight:500}
+.mbtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:15px;
+  border:1px solid rgba(255,255,255,.14);background:var(--monitor-chip);color:var(--on-monitor);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  font-size:12px;font-weight:500;cursor:pointer}
+.mbtn:hover:not(:disabled){border-color:rgba(255,255,255,.32)}
+.mbtn:disabled{opacity:.4;cursor:default}
+.mbtn.on{background:#F5F5F7;color:#1D1D1F;border-color:#F5F5F7}
+.mbtn svg{width:15px;height:15px}
+.monitor:not(.live) .hud{display:none}
+
+/* empty, connecting and calibrating states inside the monitor */
+.pane{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:16px;padding:32px;text-align:center}
+.pane.show{display:flex}
+.pane h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+.pane p{margin:0;max-width:420px;color:#A1A1A6;line-height:1.55}
+.pane .actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
+.pane .btn{background:transparent;border-color:rgba(255,255,255,.2);color:var(--on-monitor)}
+.pane .btn:hover:not(:disabled){background:rgba(255,255,255,.06)}
+.pane .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.pane .btn.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+.pane .linkbtn{color:#A1A1A6}
+
+/* calibration steps: centred in the load pane, or docked over live video */
+.calib-dock{position:absolute;left:12px;bottom:12px;z-index:5;display:none;width:min(540px,calc(100% - 24px));
+  padding:12px 14px;border-radius:12px;background:rgba(29,29,31,.84);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.calib-dock.show{display:block}
+.steps{display:flex;gap:6px;margin:0;padding:0;list-style:none;width:min(520px,100%)}
+.steps li{flex:1;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:12px;color:#86868B}
+.steps li::before{content:"";height:3px;border-radius:2px;background:#3A3A3C}
+.steps li.done{color:#D2D2D7}
+.steps li.done::before{background:#F5F5F7}
+.steps li.now{color:#F5F5F7;font-weight:600}
+.steps li.now::before{background:linear-gradient(90deg,var(--progress) var(--p,35%),#3A3A3C var(--p,35%))}
+.steps li.now.indet::before{background:#3A3A3C;position:relative;overflow:hidden;
+  background-image:linear-gradient(90deg,transparent,var(--progress),transparent);background-size:40% 100%;
+  background-repeat:no-repeat;animation:sweep 1.3s linear infinite}
+@keyframes sweep{from{background-position:-40% 0}to{background-position:140% 0}}
+.step-detail{display:flex;justify-content:space-between;gap:16px;margin-top:10px;font-size:12.5px;
+  color:#D2D2D7;width:min(520px,100%)}
+.step-detail .mono{color:#86868B}
+.pane .steps-wrap{display:flex;flex-direction:column;align-items:center;width:100%}
+
+/* notices over the video: not calibrated, failed, new violation */
+.notice{position:absolute;left:12px;right:12px;top:48px;z-index:6;display:none;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:12px;background:rgba(29,29,31,.88);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);font-size:13px}
+.notice.show{display:flex}
+.notice svg{width:18px;height:18px;flex:none;color:#FF9F0A}
+.notice.bad svg{color:#FF453A}
+.notice span{flex:1;line-height:1.4}
+.notice .mbtn{background:#F5F5F7;color:#1D1D1F;border-color:#F5F5F7;font-weight:600}
+.monitor:not(.live) .notice{top:12px}
+.toast{position:absolute;top:48px;right:12px;z-index:7;display:flex;align-items:center;gap:10px;
+  padding:9px 12px 9px 10px;border-radius:12px;background:#FFFFFF;color:#1D1D1F;font-size:12.5px;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);transform:translateY(-6px);opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:none}
+.toast .sp{font:700 15px var(--sans);color:#D70015}
+.toast .lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#D70015}
+
+/* under the monitor: legend and quick readouts */
+.monitor-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding:10px 2px 0;
+  font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,.12)}
+.monitor-foot .readouts{margin-left:auto;display:flex;gap:14px}
+.monitor-foot b{color:var(--ink-2);font-weight:600}
+
+/* ---------- right rail ---------- */
+.rail{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px 16px}
+.panel h3{margin:0 0 12px;font-size:12.5px;font-weight:600;color:var(--ink-2);
+  display:flex;justify-content:space-between;align-items:baseline}
+.panel h3 small{font-weight:500;color:var(--muted);font-size:11.5px}
+.hero{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.hero b{font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1}
+.hero span{color:var(--muted)}
+dl.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;margin:0}
+dl.kv dt{color:var(--muted)}
+dl.kv dd{margin:0;text-align:right;font-weight:550;color:var(--ink)}
+dl.kv dd small{font-weight:400;color:var(--muted)}
+.spark{position:relative;margin-top:14px;height:76px;border-top:1px solid var(--line);padding-top:10px}
+.spark svg{width:100%;height:64px;display:block;overflow:visible}
+.spark path,.spark line{fill:none;vector-effect:non-scaling-stroke}
+.spark .p85{stroke:var(--ink);stroke-width:1.6}
+.spark .mean{stroke:var(--faint);stroke-width:1.4}
+.spark .lim{stroke:var(--red);stroke-width:1;stroke-dasharray:4 3}
+.spark .empty{position:absolute;inset:10px 0 0;display:flex;align-items:center;justify-content:center;
+  color:var(--faint);font-size:12px}
+.spark-key{display:flex;gap:12px;margin-top:6px;font-size:11.5px;color:var(--muted)}
+.spark-key i{display:inline-block;width:12px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.panel .btn{width:100%;margin-top:14px}
+
+/* ---------- violations ---------- */
+.violations{max-width:1680px;margin:0 auto;padding:4px 20px 40px}
+.vhead{display:flex;align-items:baseline;gap:12px;padding:14px 0 12px}
+.vhead h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-.02em}
+.vhead .muted{font-size:12.5px}
+.vhead .spacer{flex:1}
+.ledger{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px}
+.ledger div{padding:12px 16px;border-left:1px solid var(--line);min-width:0}
+.ledger div:first-child{border-left:0}
+.ledger b{display:block;font-size:19px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.ledger b small{font-size:12px;font-weight:500;color:var(--muted)}
+.ledger b.hot{color:var(--red)}
+.ledger span{display:block;margin-top:2px;font-size:12px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.ledger .mix{font-size:12.5px;font-weight:500;white-space:normal;line-height:1.5;color:var(--ink-2)}
+.tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  max-height:600px;overflow:auto}
+table{width:100%;border-collapse:collapse}
+th{position:sticky;top:0;z-index:1;background:var(--surface);text-align:left;font-weight:500;
+  font-size:12px;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--bg)}
+tbody tr.fresh td{animation:fresh 4s ease-out}
+@keyframes fresh{from{background:var(--red-wash)}to{background:transparent}}
+td.num,th.num{text-align:right}
+.when b{font-weight:550}
+.when small,.veh small{color:var(--muted);margin-left:6px}
+.speed b{font-size:14px;font-weight:600;color:var(--red)}
+.speed small{color:var(--muted);margin-left:3px}
+.over{display:flex;align-items:center;gap:10px}
+.over .track{width:72px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.over .track i{display:block;height:100%;background:var(--red)}
+.over span{min-width:44px;font-weight:550}
+.resp{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+.resp i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.resp.ok{color:var(--ok)} .resp.ok i{background:var(--ok)}
+.resp.warn{color:var(--warn)} .resp.warn i{background:var(--warn)}
+.resp.none{color:var(--muted)}
+.thumb{display:block;padding:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;
+  background:var(--sunken);cursor:zoom-in;width:56px;height:38px}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.emptyrow td{padding:40px 14px;text-align:center;color:var(--muted);white-space:normal}
+
+/* ---------- dialogs ---------- */
+dialog{border:1px solid var(--line);border-radius:18px;padding:0;background:var(--surface);color:var(--ink);
+  box-shadow:0 20px 60px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+  border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:15px;font-weight:600}
+.iconbtn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:0;
+  background:none;border-radius:50%;cursor:pointer;color:var(--muted)}
+.iconbtn:hover{background:var(--sunken);color:var(--ink)}
+.iconbtn svg{width:16px;height:16px}
+#srcdlg{width:520px}
+.dlg-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.choice{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;width:100%;
+  text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);cursor:pointer}
+.choice:hover{border-color:var(--line-strong);background:var(--bg)}
+.choice b{font-weight:600}
+.choice span{grid-column:1;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.choice em{grid-column:2;grid-row:1/3;font-style:normal;font-size:12px;color:var(--muted)}
+.custom{margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
+.custom label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.custom .row{display:flex;gap:8px}
+.custom input{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--line-strong);
+  border-radius:var(--radius);background:var(--bg)}
+.custom input:focus{outline:none;border-color:var(--accent)}
+.current{margin:4px 0 0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lightbox{width:min(760px,calc(100vw - 32px))}
+#lightbox .shot{background:var(--monitor);display:flex;justify-content:center}
+#lightbox .shot img{max-width:100%;max-height:70vh;display:block}
+.lb-meta{display:flex;align-items:center;gap:16px;padding:12px 16px;flex-wrap:wrap}
+.lb-meta .sp{font-size:18px;font-weight:600;color:var(--red)}
+.lb-meta .spacer{flex:1}
+.lb-meta a{color:var(--ink-2);font-size:12.5px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:980px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:0 10px;height:28px;font-size:12.5px;
+  color:var(--ink-2);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button.on{background:var(--ink);color:var(--surface)}
+
+/* ---------- smaller screens ---------- */
+@media (max-width:1180px){
+  .ledger{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ledger div:nth-child(4){border-left:0}
+  .ledger div:nth-child(n+4){border-top:1px solid var(--line)}
+}
+@media (max-width:1080px){
+  .workspace{grid-template-columns:1fr}
+  .rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .brand .tag,.limit span{display:none}
+}
+@media (max-width:720px){
+  .topbar{gap:10px;padding:0 16px}
+  .site,.clock,.logstate span{display:none}
+  .workspace{padding:16px}
+  .violations{padding:4px 16px 32px}
+  .monitor-foot .readouts{margin-left:0}
+  .ledger{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ledger div:nth-child(odd){border-left:0}
+  .ledger div:nth-child(n+3){border-top:1px solid var(--line)}
+  .ledger div:nth-child(4){border-left:1px solid var(--line)}
+  .hud.tr{display:none}
+  #dl-label{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-expand" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2 1.5 5.5 8 9l6.5-3.5L8 2Z"/><path d="m1.5 8.5 6.5 3.5 6.5-3.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1"/><path d="M13.5 2.5v3h-3"/></symbol>
+  <symbol id="i-source" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="1.5" y="4" width="9" height="8" rx="1.2"/><path d="m10.5 7 4-2.2v6.4l-4-2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4.8 7 8 10.2 11.2 7M2.5 13.5h11"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8 15 14H1L8 1.8Z"/><path d="M8 6.5v3.2M8 11.8v.1"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><b>Kestrel</b><span class="tag">Speed enforcement</span></div>
+  <div class="site"><span id="cam-name">&mdash;</span><span id="src-name"></span></div>
+  <div class="spacer"></div>
+  <div class="pill" id="pill" role="status" aria-live="polite"><i></i><span id="pill-text">Starting</span></div>
+  <div class="limit" id="limit" hidden>
+    <svg class="sign" viewBox="0 0 40 40" role="img" aria-labelledby="limit-num">
+      <circle cx="20" cy="20" r="17" fill="#fff" stroke="var(--sign-red)" stroke-width="5"/>
+      <text id="limit-num" x="20" y="25.4" text-anchor="middle" fill="#111">40</text>
+    </svg>
+    <span>km/h limit</span>
+  </div>
+  <div class="logstate" id="logstate" hidden><i></i><span id="logstate-text"></span></div>
+  <div class="clock" id="clock" aria-label="local time"></div>
+  <button class="btn" id="dl-btn" popovertarget="dl-menu" aria-label="Download data"><svg><use href="#i-download"/></svg><span id="dl-label">Download</span></button>
+  <div class="menu" id="dl-menu" popover>
+    <p>Speeding log</p>
+    <button data-range="day">Last day</button>
+    <button data-range="week">Last week</button>
+    <button data-range="month">Last month</button>
+    <button data-range="all">All time</button>
+  </div>
+  <button class="btn" onclick="openSource()"><svg><use href="#i-source"/></svg>Source</button>
+</header>
+
+<main class="workspace">
+  <section class="monitor-col" aria-label="Camera">
+    <div class="monitor" id="stage">
+      <img id="vid" alt="Annotated camera feed">
+
+      <div class="hud tl">
+        <span class="chip" id="hud-state"><span class="dot"></span><span id="hud-state-text">LIVE</span></span>
+        <span class="chip" id="hud-cam"></span>
+      </div>
+      <div class="hud tr"><span class="chip"><span class="mono" id="hud-time"></span></span></div>
+      <div class="hud br">
+        <button class="mbtn" id="depth-btn" onclick="toggleDepth()" title="Depth overlay (D)"><svg><use href="#i-layers"/></svg>Depth</button>
+        <button class="mbtn" onclick="goFull()" title="Fullscreen (F)" aria-label="Fullscreen"><svg><use href="#i-expand"/></svg></button>
+      </div>
+
+      <div class="notice" id="notice" role="alert">
+        <svg><use href="#i-alert"/></svg><span id="notice-text"></span>
+        <button class="mbtn" id="notice-btn" onclick="recalibrate()">Recalibrate</button>
+      </div>
+
+      <div class="toast" id="toast" role="status">
+        <div><div class="lbl">Violation logged</div><div id="toast-text"></div></div>
+        <div class="sp" id="toast-speed"></div>
+      </div>
+
+      <div class="pane show" id="pane-empty">
+        <h2>No camera connected</h2>
+        <p>Join the drone&rsquo;s Wi-Fi and connect to its camera, or play recorded footage to see the system working.</p>
+        <div class="actions">
+          <button class="btn primary" onclick="connect(S.droneUrl)">Connect drone camera</button>
+          <button class="btn" onclick="connect(S.defaultUrl)">Play demo footage</button>
+        </div>
+        <button class="linkbtn" onclick="openSource()">Use another stream or file</button>
+      </div>
+
+      <div class="pane" id="pane-load">
+        <h2 id="load-title">Connecting</h2>
+        <div class="steps-wrap" id="load-slot"></div>
+      </div>
+
+      <div class="calib-dock" id="calib-dock">
+        <div id="steps-box">
+          <ol class="steps" id="steps">
+            <li data-k="connect">Connect</li>
+            <li data-k="record">Record traffic</li>
+            <li data-k="measure">Measure</li>
+            <li data-k="live">Live</li>
+          </ol>
+          <div class="step-detail"><span id="step-text"></span><span class="mono" id="step-time"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="monitor-foot">
+      <div class="legend" aria-label="Box colours">
+        <span><i style="background:#00FF00"></i><span id="lg-green">under 32 km/h</span></span>
+        <span><i style="background:#FFFF00"></i><span id="lg-yellow">32&ndash;40</span></span>
+        <span><i style="background:#FF0000"></i><span id="lg-red">over 40</span></span>
+        <span><i style="background:#9B9B9B"></i>unreliable</span>
+        <span><i style="background:#5F5F5F"></i>warming up</span>
+      </div>
+      <div class="readouts">
+        <span><b id="ft-fps">&mdash;</b> fps</span>
+        <span>delay <b id="ft-lat">&mdash;</b></span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="rail">
+    <section class="panel">
+      <h3>Traffic now <small id="tr-window">last 60 s</small></h3>
+      <div class="hero"><b id="n">0</b><span>vehicles in view</span></div>
+      <dl class="kv">
+        <dt>Average speed</dt><dd id="tavg">&mdash;</dd>
+        <dt title="85th-percentile speed: 85% of vehicles are at or below it">85th percentile</dt><dd id="t85">&mdash;</dd>
+      </dl>
+      <div class="spark">
+        <svg id="spark" viewBox="0 0 280 64" preserveAspectRatio="none" aria-label="Speed trend, last 5 minutes"></svg>
+        <div class="empty" id="spark-empty">Trend appears once vehicles are measured</div>
+      </div>
+      <div class="spark-key"><span><i style="border-color:var(--ink)"></i>85th pct</span><span><i style="border-color:var(--faint)"></i>average</span><span><i style="border-color:var(--red);border-top-style:dashed"></i>limit</span><span class="muted" style="margin-left:auto">5 min</span></div>
+    </section>
+
+    <section class="panel">
+      <h3>Calibration <small id="cal-mode"></small></h3>
+      <dl class="kv">
+        <dt>Camera altitude</dt><dd id="h">&mdash;</dd>
+        <dt>Focal length</dt><dd id="f">&mdash;</dd>
+        <dt>View angle</dt><dd id="tilt">&mdash;</dd>
+        <dt>Depth</dt><dd id="dk">&mdash;</dd>
+        <dt title="Camera shake is measured against a fixed reference view and removed before speeds are computed">Shake correction</dt><dd id="stab">&mdash;</dd>
+      </dl>
+      <button class="btn" id="recal-btn" onclick="recalibrate()" disabled><svg><use href="#i-redo"/></svg>Recalibrate</button>
+    </section>
+
+    <section class="panel">
+      <h3>System</h3>
+      <dl class="kv">
+        <dt>Detection rate</dt><dd id="fps">&mdash;</dd>
+        <dt title="Edge-preserving smoothing before detection; for display, the still background is also averaged over time. Vehicles are always shown as captured.">Image clean-up</dt><dd id="cleanup">&mdash;</dd>
+        <dt>Video delay</dt><dd id="lat">&mdash;</dd>
+        <dt title="Speeds use the camera's own frame timestamps once they have proved honest; otherwise the time each frame arrived. Jitter: how late frames arrive over Wi-Fi, which camera timestamps keep out of the speeds.">Frame timing</dt><dd id="timing">&mdash;</dd>
+        <dt>Logged this session</dt><dd id="logged">&mdash;</dd>
+        <dt>Guard alerts</dt><dd id="guards">&mdash;</dd>
+      </dl>
+    </section>
+  </aside>
+</main>
+
+<section class="violations" id="db" hidden>
+  <div class="vhead">
+    <h2>Violations</h2>
+    <span class="muted" id="dbnote"></span>
+    <span class="spacer"></span>
+    <span class="muted" id="dbcount"></span>
+  </div>
+  <div class="ledger" id="ledger"></div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>Time</th><th>Vehicle</th><th class="num">Speed</th><th>Over limit</th>
+        <th>Camera</th><th>Response</th><th>Evidence</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<dialog id="srcdlg" aria-labelledby="srcdlg-title">
+  <div class="dlg-head"><h2 id="srcdlg-title">Video source</h2>
+    <form method="dialog"><button class="iconbtn" aria-label="Close"><svg><use href="#i-x"/></svg></button></form></div>
+  <div class="dlg-body">
+    <button class="choice" onclick="connect(S.droneUrl)"><b>Drone camera</b><span class="mono" id="drone-url"></span><em>Needs the drone&rsquo;s Wi-Fi</em></button>
+    <button class="choice" onclick="connect(S.defaultUrl)"><b>Demo footage</b><span>Recorded overhead traffic</span><em>Works offline</em></button>
+    <form class="custom" onsubmit="event.preventDefault();connect(document.getElementById('src').value.trim())">
+      <label for="src">Stream URL or file path</label>
+      <div class="row"><input id="src" type="text" autocomplete="off" spellcheck="false" placeholder="rtsp://&hellip;, https://&hellip;, or /path/to/video.mp4"><button class="btn primary">Connect</button></div>
+    </form>
+    <p class="current">Current: <span class="mono" id="cur-src">none</span></p>
+  </div>
+</dialog>
+
+<dialog id="lightbox" aria-label="Evidence">
+  <div class="shot"><img id="lb-img" alt="Evidence frame"></div>
+  <div class="lb-meta">
+    <span class="sp" id="lb-speed"></span>
+    <span id="lb-text"></span>
+    <span class="spacer"></span>
+    <div class="seg" id="lb-seg" role="group" aria-label="Evidence view" hidden
+         title="Noise-reduced: the frame after the same clean-up the detector sees. Original: the frame as recorded.">
+      <button id="lb-enh" onclick="lbView('enh')">Noise-reduced</button>
+      <button id="lb-raw" onclick="lbView('raw')">Original frame</button>
+    </div>
+    <a id="lb-link" target="_blank" rel="noopener">Open full size</a>
+    <form method="dialog"><button class="btn">Close</button></form>
+  </div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = {defaultUrl:'', droneUrl:'', source:null, limit:0, depthOn:false, rows:[], lastTop:null};
+let loadStart = 0;
+const pause = ms => new Promise(k => setTimeout(k, ms));
+// Every request has a timeout and every poll waits for its previous one. A
+// browser allows ~6 connections per site (Safari enforces it): /events polls
+// stacking up behind a slow database once filled them all, and the video
+// froze until the page was reloaded.
+async function get(url, ms, as){
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  try{
+    const r = await fetch(url, {cache:'no-store', signal:c.signal});
+    return r.status === 200 ? await r[as]() : null;      // 204: nothing yet
+  }finally{ clearTimeout(t); }
+}
+async function every(ms, fn){ for(;;){ try{ await fn(); }catch(e){} await pause(ms); } }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dash = '—';
+
+/* ---------- actions ---------- */
+async function connect(url){
+  if(!url) return;
+  loadStart = Date.now();
+  $('srcdlg').close();
+  await fetch('/source?url=' + encodeURIComponent(url));
+}
+async function recalibrate(){ loadStart = Date.now(); await fetch('/recalibrate'); }
+async function toggleDepth(){
+  S.depthOn = !S.depthOn; $('depth-btn').classList.toggle('on', S.depthOn);
+  await fetch('/overlay?' + (S.depthOn ? '1' : '0'));
+}
+function goFull(){
+  if(document.fullscreenElement) document.exitFullscreen(); else $('stage').requestFullscreen();
+}
+function openSource(){ $('src').value = ''; $('srcdlg').showModal(); }
+document.addEventListener('keydown', e => {
+  if(e.target.closest('input,dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(e.key === 'f') goFull();
+  if(e.key === 'd' && !$('depth-btn').disabled) toggleDepth();
+});
+
+/* ---------- video: one JPEG per request ----------
+   Not an MJPEG <img>: in Safari that stream stayed black after a
+   recalibration until the tab was reloaded. A plain image request has no
+   long-lived connection to get stuck, and survives a server restart. */
+let pumping = false, shown = null;
+async function pump(){
+  if(pumping) return; pumping = true;
+  const v = $('vid');
+  while(v.style.display === 'block'){
+    try{
+      const b = await get('/frame.jpg', 4000, 'blob');
+      if(b){
+        const u = URL.createObjectURL(b);
+        v.src = u; if(shown) URL.revokeObjectURL(shown); shown = u;
+        await pause(25);   // ponytail: ~30 polls/s, may refetch a frame; add a server-side wait if that ever matters
+        continue;
+      }
+    }catch(e){}
+    await pause(300);      // no frame yet, or the server is restarting
+  }
+  pumping = false;
+}
+
+/* ---------- pipeline state ---------- */
+function phaseOf(s){
+  const st = s.status || '';
+  if(/^failed/.test(st)) return {k:'error', label:'Error', tone:'bad'};
+  if(/resolving|loading|switching/.test(st)) return {k:'connect', label:'Connecting', tone:'warn'};
+  if(/recording/.test(st)) return {k:'record', label:'Calibrating', tone:'warn'};
+  if(/calibrat/.test(st)) return {k:'measure', label:'Calibrating', tone:'warn'};
+  if(st === 'preview') return {k:'preview', label:'Not calibrated', tone:'warn'};
+  if(st === 'running') return s.live === false ? {k:'live', label:'Playback', tone:'info'}
+                                               : {k:'live', label:'Live', tone:'ok'};
+  return {k:'idle', label:'No source', tone:''};
+}
+function view(which){
+  $('pane-empty').classList.toggle('show', which === 'empty');
+  $('pane-load').classList.toggle('show', which === 'load');
+  $('vid').style.display = which === 'live' ? 'block' : 'none';
+  $('stage').classList.toggle('live', which === 'live');
+  if(which === 'live') pump();
+}
+const ORDER = ['connect', 'record', 'measure', 'live'];
+function renderSteps(ph, s, docked){
+  // one steps element, moved to wherever it is visible
+  const box = $('steps-box');
+  const slot = docked ? $('calib-dock') : $('load-slot');
+  if(box.parentNode !== slot) slot.appendChild(box);
+  const at = ORDER.indexOf(ph.k);
+  const c = s.calib;
+  document.querySelectorAll('#steps li').forEach((li, i) => {
+    li.className = i < at ? 'done' : i === at ? 'now' : '';
+    if(i === at){
+      if(ph.k === 'record' && c) li.style.setProperty('--p', Math.round(100 * (1 - c.left / c.total)) + '%');
+      else li.classList.add('indet');
+    }
+  });
+  const secs = loadStart ? Math.round((Date.now() - loadStart) / 1000) : 0;
+  $('step-text').textContent = {
+    connect: 'Opening the camera stream',
+    record: 'Recording traffic. Keep the camera over moving vehicles.',
+    measure: 'Measuring vehicle sizes to find the camera height',
+  }[ph.k] || '';
+  $('step-time').textContent = ph.k === 'record' && c ? c.left + ' s left' : secs ? secs + ' s' : '';
+  $('load-title').textContent = ph.k === 'connect' ? 'Connecting' : 'Calibrating';
+}
+function sourceName(src, title){
+  if(!src) return '';
+  if(src === S.droneUrl) return 'Drone camera';
+  if(src === S.defaultUrl) return 'Demo footage';
+  return title && title !== 'Camera' ? title : src;
+}
+function mmss(sec){ sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+
+function render(s){
+  S.defaultUrl = s.default_url || ''; S.droneUrl = s.drone_url || '';
+  const ph = phaseOf(s);
+  const working = ph.k === 'connect' || ph.k === 'record' || ph.k === 'measure';
+  const busy = working && !s.feed;                    // a live camera stays on screen while calibrating
+  view(!s.source && !working ? 'empty' : busy ? 'load' : 'live');
+  if(working){ if(!loadStart) loadStart = Date.now(); renderSteps(ph, s, !busy); }
+  else loadStart = 0;
+  $('calib-dock').classList.toggle('show', working && !busy);
+
+  if(s.source !== S.source){ S.source = s.source; hist.length = 0; }
+
+  // top bar
+  $('pill').className = 'pill ' + ph.tone; $('pill-text').textContent = ph.label;
+  $('cam-name').textContent = s.camera || 'Camera';
+  $('src-name').textContent = sourceName(s.source, s.title);
+  const L = s.limit || s.speed_limit || 0;
+  $('limit').hidden = !L; $('limit-num').textContent = Math.round(L);
+  $('limit-num').style.fontSize = L >= 100 ? '12px' : '';
+  if(L !== S.limit){
+    S.limit = L;
+    const lim = L || 40, y = Math.round(L ? 0.8 * L : 30);   // matches the box colours exactly
+    $('lg-green').textContent = 'under ' + y + ' km/h';
+    $('lg-yellow').innerHTML = y + '&ndash;' + lim;
+    $('lg-red').textContent = 'over ' + lim;
+  }
+
+  // HUD over the video
+  const hs = $('hud-state');
+  hs.className = 'chip ' + (ph.k === 'live' ? (s.live === false ? '' : 'rec') : ph.k === 'error' ? 'err' : 'amber');
+  $('hud-state-text').textContent = ph.k === 'live' ? (s.live === false ? 'PLAYBACK' : 'LIVE')
+                                  : ph.k === 'preview' ? 'NOT CALIBRATED' : ph.k === 'error' ? 'NO SIGNAL' : 'CALIBRATING';
+  $('hud-cam').textContent = (s.camera || 'Camera').toUpperCase();
+  $('hud-time').textContent = s.live === false && s.position_s != null ? mmss(s.position_s) : clockText();
+
+  // notices: not calibrated, failed
+  const failed = ph.k === 'error';
+  $('notice').classList.toggle('show', (ph.k === 'preview' || failed) && !!s.note);
+  $('notice').classList.toggle('bad', failed);
+  $('notice-text').textContent = s.note || '';
+  $('notice-btn').textContent = failed ? 'Try again' : 'Recalibrate';
+
+  // depth
+  S.depthOn = !!s.overlay;
+  $('depth-btn').classList.toggle('on', S.depthOn);
+  $('depth-btn').disabled = !s.depth_kind || s.depth_kind === 'none';
+
+  // traffic
+  const tr = s.traffic;
+  $('n').textContent = s.tracked ?? 0;
+  $('tavg').innerHTML = tr ? tr.mean.toFixed(1) + ' <small>km/h</small>' : dash;
+  $('t85').innerHTML = tr ? tr.p85.toFixed(1) + ' <small>km/h</small>' : dash;
+  sample(tr, L);
+
+  // calibration
+  $('cal-mode').textContent = s.mode === 'drone' ? 'overhead' : s.mode === 'fixed' ? 'roadside' : '';
+  $('h').innerHTML = s.height == null ? dash : s.height.toFixed(1) + ' <small>m</small>';
+  $('f').innerHTML = s.focal == null ? dash : s.focal.toFixed(0) + ' <small>px</small>';
+  $('tilt').innerHTML = s.tilt == null ? dash : s.tilt >= 89.5 ? 'straight down' : s.tilt.toFixed(1) + '&deg; <small>down</small>';
+  $('dk').textContent = {'depth-pro':'Depth Pro model', geometric:'from geometry'}[s.depth_kind] || dash;
+  $('stab').innerHTML = s.stab_px == null ? (s.mode === 'drone' && s.fps ? 'off' : dash)
+                      : 'on <small>' + s.stab_px.toFixed(0) + ' px from start</small>';
+  $('recal-btn').disabled = !(s.source && (ph.k === 'live' || ph.k === 'preview' || failed) && s.live !== false);
+
+  // system
+  const fps = s.fps ? s.fps.toFixed(1) : dash;
+  const lat = s.live === false ? 'n/a' : s.latency_ms != null ? s.latency_ms + ' ms' : dash;
+  $('fps').innerHTML = s.fps ? fps + ' <small>fps</small>' : dash; $('ft-fps').textContent = fps;
+  $('lat').textContent = lat; $('ft-lat').textContent = lat;
+  $('cleanup').textContent = s.cleanup == null ? dash : s.cleanup ? 'on' : 'off';
+  $('timing').innerHTML = s.clock === 'camera'
+    ? 'camera clock' + (s.jitter_ms != null ? ' <small>jitter ' + Math.round(s.jitter_ms) + ' ms</small>' : '')
+    : s.clock === 'arrival' ? 'arrival time' : dash;
+  $('logged').textContent = s.log_on == null ? dash : !s.log_on ? 'logging off'
+                          : (s.logged ?? 0) + (s.log_failed ? ' (' + s.log_failed + ' not saved)' : '');
+  $('guards').textContent = s.log_on ? 'nearest 3 guards' : dash;
+  if(s.log_failed) setLog('warn', s.log_failed + ' not saved', 'Some events could not be saved on this Mac.');
+}
+
+/* ---------- 5-minute speed trend ---------- */
+const hist = [];
+let lastSample = 0;
+function sample(tr, limit){
+  const now = Date.now();
+  if(tr && now - lastSample > 2000){ hist.push({t:now, mean:tr.mean, p85:tr.p85}); lastSample = now; }
+  while(hist.length && now - hist[0].t > 300000) hist.shift();
+  const svg = $('spark'), W = 280, H = 64;
+  $('spark-empty').hidden = hist.length > 1;
+  if(hist.length < 2){ svg.innerHTML = ''; return; }
+  const top = Math.max(limit * 1.3, ...hist.map(p => p.p85)) * 1.08 || 1;
+  const x = t => (W * (t - (now - 300000)) / 300000).toFixed(1);
+  const y = v => (H - 2 - (H - 4) * v / top).toFixed(1);
+  const path = k => hist.map((p, i) => (i ? 'L' : 'M') + x(p.t) + ' ' + y(p[k])).join('');
+  svg.innerHTML = (limit ? '<line class="lim" x1="0" x2="' + W + '" y1="' + y(limit) + '" y2="' + y(limit) + '"/>' : '') +
+    '<path class="mean" d="' + path('mean') + '"/><path class="p85" d="' + path('p85') + '"/>';
+}
+
+/* ---------- clock ---------- */
+function clockText(){ return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}); }
+setInterval(() => { $('clock').textContent = clockText(); }, 1000);
+$('clock').textContent = clockText();
+
+/* ---------- speeding log ---------- */
+function setLog(tone, text, title){
+  const el = $('logstate');
+  el.hidden = false; el.className = 'logstate ' + tone; el.title = title || '';
+  $('logstate-text').textContent = text;
+}
+function fmtWhen(iso){
+  const d = new Date(iso), now = new Date();
+  const t = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+  const day = d.toDateString() === now.toDateString() ? 'today'
+            : d.toLocaleDateString([], {day:'numeric', month:'short'});
+  return '<b>' + t + '</b><small>' + day + '</small>';
+}
+function ago(iso){
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
+}
+function response(r){
+  if(r.pending) return '<span class="resp warn" title="Saved on this Mac. Guards are alerted once it reaches the cloud."><i></i>Not in the cloud yet</span>';
+  if(r.responder) return '<span class="resp ok" title="claimed ' + (r.claimed_at ? ago(r.claimed_at) : '') + '"><i></i>' + esc(r.responder) + ' responding</span>';
+  if(r.alerted) return '<span class="resp warn"><i></i>' + r.alerted + ' guard' + (r.alerted > 1 ? 's' : '') + ' alerted</span>';
+  return '<span class="resp none">No guard alerted</span>';
+}
+function ledger(d){
+  const plural = (n, w) => n === 1 ? w : /s$/.test(w) ? w + 'es' : w + 's';
+  const types = (d.by_type || []).map(x => x.n + ' ' + plural(x.n, x.type.toLowerCase())).join(', ') || dash;
+  const cell = (v, k, cls) => '<div><b class="' + (cls || '') + '">' + v + '</b><span>' + k + '</span></div>';
+  return cell(d.last_hour, 'last hour') + cell(d.last_24h ?? dash, 'last 24 hours') + cell(d.total, 'all time') +
+    cell(d.fastest.toFixed(1) + ' <small>km/h</small>', 'fastest recorded', 'hot') +
+    cell('+' + d.avg_over.toFixed(1) + ' <small>km/h</small>', 'average over the limit') +
+    '<div><span class="mix">' + types + '</span><span>by vehicle type</span></div>';
+}
+async function refreshLog(){
+  let d;
+  try{ d = await get('/events', 15000, 'json'); }catch(e){ return; }
+  if(!d) return;
+  const sec = $('db');
+  if(d.disabled){ sec.hidden = true; setLog('', 'Logging off', 'Start with a speed limit to record violations.'); return; }
+  sec.hidden = false;
+  if(d.error){
+    setLog('bad', 'Log offline', d.error);
+    $('dbnote').textContent = 'The log on this Mac could not be read. (' + d.error + ')';
+    return;
+  }
+  // Shown from this Mac's copy; the cloud gets each event when the internet allows.
+  const n = d.pending || 0;
+  if(d.sync_error) setLog('warn', n ? n + ' waiting for internet' : 'Cloud offline',
+    'Saved on this Mac. ' + (n ? 'Guards are alerted once these reach the cloud. ' : '') + '(' + d.sync_error + ')');
+  else if(n || !d.synced_at) setLog('', n ? 'Sending ' + n + ' to the cloud' : 'Connecting to the cloud', 'Violations are saved on this Mac first');
+  else setLog('ok', 'Log connected', 'Violations are saved on this Mac and in the cloud');
+  $('dbnote').textContent = d.total + ' recorded' + (d.cameras > 1 ? ' across ' + d.cameras + ' cameras' : '') +
+    (n ? ' · ' + n + ' not in the cloud yet' : '');
+  $('dbcount').textContent = d.rows.length ? 'Latest ' + d.rows.length : '';
+  $('ledger').innerHTML = ledger(d);
+  S.rows = d.rows;
+  const body = $('rows');
+  if(!d.rows.length){
+    body.innerHTML = '<tr class="emptyrow"><td colspan="7">No violations yet. A vehicle is logged once it stays over the limit for 0.7 s.</td></tr>';
+    return;
+  }
+  const prev = S.lastTop;
+  body.innerHTML = d.rows.map((r, i) => {
+    const over = Math.min(1, r.over / Math.max(r.limit, 1));
+    return '<tr' + (prev != null && r.id > prev ? ' class="fresh"' : '') + '>' +
+      '<td class="when">' + fmtWhen(r.at) + '</td>' +
+      '<td class="veh">' + esc(r.type) + '<small>#' + r.vehicle_id + '</small></td>' +
+      '<td class="num speed"><b>' + r.kmh.toFixed(1) + '</b><small>km/h</small></td>' +
+      '<td><div class="over"><span>+' + r.over.toFixed(1) + '</span><div class="track"><i style="width:' + (over * 100).toFixed(0) + '%"></i></div><small class="muted">limit ' + r.limit.toFixed(0) + '</small></div></td>' +
+      '<td>' + esc(r.camera) + '</td>' +
+      '<td>' + response(r) + '</td>' +
+      '<td>' + (r.frame ? '<button class="thumb" onclick="openEvidence(' + i + ')" aria-label="View evidence"><img loading="lazy" src="' + esc(r.frame) + '" alt=""></button>' : '<span class="muted">' + dash + '</span>') + '</td></tr>';
+  }).join('');
+  const top = d.rows[0];
+  if(prev != null && top.id > prev) toast(top);
+  S.lastTop = Math.max(prev ?? 0, top.id);
+}
+let toastTimer;
+function toast(r){
+  $('toast-text').textContent = r.type + ' #' + r.vehicle_id + ' · ' + r.camera;
+  $('toast-speed').textContent = r.kmh.toFixed(0) + ' km/h';
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 5000);
+}
+// Cleaned-up evidence is stored as <id>.jpg with the frame as recorded beside
+// it as <id>_raw.jpg. Older events have only the one image: no switch then.
+let LB = {};
+function lbView(v){
+  const url = v === 'raw' ? LB.raw : LB.enh;
+  $('lb-img').src = url; $('lb-link').href = url;
+  $('lb-enh').classList.toggle('on', v === 'enh'); $('lb-raw').classList.toggle('on', v === 'raw');
+}
+function openEvidence(i){
+  const r = S.rows[i];
+  const raw = /_raw\.jpg$/.test(r.frame) ? null : r.frame.replace(/\.jpg$/, '_raw.jpg');
+  LB = {enh: r.frame, raw};
+  $('lb-seg').hidden = true;
+  if(raw){ const probe = new Image(); probe.onload = () => { if(LB.raw === raw) $('lb-seg').hidden = false; }; probe.src = raw; }
+  lbView('enh');
+  $('lb-speed').textContent = r.kmh.toFixed(1) + ' km/h';
+  $('lb-text').textContent = r.type + ' #' + r.vehicle_id + ' in a ' + r.limit.toFixed(0) + ' zone · ' + r.camera + ' · ' +
+    new Date(r.at).toLocaleString([], {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+  $('lightbox').showModal();
+}
+$('lightbox').addEventListener('click', e => { if(e.target === $('lightbox')) $('lightbox').close(); });
+$('srcdlg').addEventListener('click', e => { if(e.target === $('srcdlg')) $('srcdlg').close(); });
+every(5000, refreshLog);
+
+/* ---------- download: the button opens the range menu; a range saves the file ---------- */
+async function exportBlob(range){
+  const r = await fetch('/export?range=' + range, {cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.blob();
+}
+const DL_NAME = 'speeding-log', DL_EXT = 'csv';
+$('dl-menu').addEventListener('toggle', e => {
+  if(e.newState !== 'open') return;
+  const b = $('dl-btn').getBoundingClientRect(), m = $('dl-menu');
+  m.style.top = b.bottom + 8 + 'px';
+  m.style.left = Math.max(8, Math.min(b.left, innerWidth - m.offsetWidth - 8)) + 'px';
+});
+$('dl-menu').addEventListener('click', async e => {
+  const range = e.target.closest('button[data-range]')?.dataset.range;
+  if(!range) return;
+  $('dl-menu').hidePopover();
+  const btn = $('dl-btn'), label = $('dl-label');
+  btn.disabled = true; label.textContent = 'Preparing…'; btn.title = '';
+  try{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await exportBlob(range));
+    a.download = `${DL_NAME}-${range === 'all' ? 'all-time' : 'last-' + range}-${new Date().toLocaleDateString('en-CA')}.${DL_EXT}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    label.textContent = 'Download';
+  }catch(err){
+    label.textContent = 'Download failed'; btn.title = err.message;
+    setTimeout(() => { label.textContent = 'Download'; btn.title = ''; }, 4000);
+  }
+  btn.disabled = false;
+});
+
+/* ---------- poll ---------- */
+async function poll(){
+  try{
+    const s = await get('/stats', 4000, 'json');
+    render(s);
+    $('drone-url').textContent = S.droneUrl;
+    $('cur-src').textContent = s.source || 'none';
+  }catch(e){
+    $('pill').className = 'pill bad'; $('pill-text').textContent = 'Server stopped';
+  }
+}
+every(600, poll);
+</script>
+</body>
+</html>

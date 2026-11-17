@@ -1,0 +1,478 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Vehicle Speed and 3D Localization — Methodology</title>
+<style>
+@page { size: A4; margin: 17mm 16mm 16mm 16mm; }
+* { box-sizing: border-box; }
+body { font: 10pt/1.55 "Georgia","Times New Roman",serif; color:#16181c; margin:0; }
+h1 { font-size: 20pt; font-weight:600; margin:0 0 4pt; letter-spacing:-0.2pt; }
+h2 { font-size: 13pt; font-weight:600; margin:20pt 0 7pt; padding-bottom:3pt;
+     border-bottom:1px solid #c8ccd2; page-break-after:avoid; }
+h3 { font-size: 10.5pt; font-weight:600; margin:13pt 0 4pt; page-break-after:avoid; }
+p, li { orphans:3; widows:3; }
+ul { margin:5pt 0 5pt 0; padding-left:15pt; }
+li { margin:3.5pt 0; }
+code { font-family:"SF Mono","Menlo",monospace; font-size:8.6pt; background:#f2f3f5;
+       padding:0.5pt 2.5pt; border-radius:2px; }
+pre { font-family:"SF Mono","Menlo",monospace; font-size:8.4pt; line-height:1.45;
+      background:#f7f8fa; border:1px solid #dfe2e7; border-left:2.5pt solid #7a8290;
+      border-radius:3px; padding:7pt 9pt; margin:7pt 0; overflow:visible;
+      white-space:pre-wrap; page-break-inside:avoid; }
+table { border-collapse:collapse; width:100%; margin:7pt 0; font-size:8.8pt;
+        page-break-inside:avoid; }
+th { text-align:left; font-weight:600; border-bottom:1.2pt solid #16181c; padding:3.5pt 5pt; }
+td { border-bottom:0.5pt solid #dfe2e7; padding:3.5pt 5pt; vertical-align:top; }
+.mono td:first-child, .mono th:first-child { font-family:"SF Mono","Menlo",monospace; font-size:8.2pt; }
+.title-block { border-bottom:2pt solid #16181c; padding-bottom:9pt; margin-bottom:14pt; }
+.sub { color:#5a6069; font-size:9.5pt; margin:3pt 0 0; }
+.meta { color:#5a6069; font-size:8.5pt; margin-top:7pt; }
+.part { page-break-before:always; font-size:15pt; border-bottom:2pt solid #16181c;
+        padding-bottom:5pt; margin-top:0; }
+.toc { font-size:9pt; column-count:2; column-gap:16pt; margin:9pt 0 0; }
+.toc div { margin:2pt 0; break-inside:avoid; }
+.toc .n { color:#5a6069; display:inline-block; width:22pt; }
+.callout { background:#fdf6ec; border:1px solid #e8d5b0; border-radius:3px;
+           padding:7pt 9pt; margin:8pt 0; font-size:9pt; page-break-inside:avoid; }
+.callout b { color:#8a5a00; }
+.neg { background:#fdeeee; border-color:#e8bcbc; }
+.neg b { color:#9a2222; }
+strong { font-weight:600; }
+.nobreak { page-break-inside:avoid; }
+</style></head><body>
+
+<div class="title-block">
+<h1>Vehicle Speed &amp; 3D Localization</h1>
+<p class="sub">Methodology and mathematical formulation for monocular vehicle
+speed estimation from fixed cameras at arbitrary viewing angles</p>
+<p class="meta">Two calibration modes — oblique (depth-assisted) and overhead
+(closed-form). Validated on four scenes. All empirical figures measured, not estimated.</p>
+</div>
+
+<div class="toc">
+<div><span class="n">I.</span><b>Methodology</b></div>
+<div><span class="n">1</span>The original approach and why it failed</div>
+<div><span class="n">2</span>Core decision: geometry, not per-frame depth</div>
+<div><span class="n">3</span>Camera model and the plane</div>
+<div><span class="n">4</span>Calibration — fixed / oblique</div>
+<div><span class="n">5</span>Calibration — drone / nadir</div>
+<div><span class="n">6</span>Scale — the physical anchor</div>
+<div><span class="n">7</span>Runtime measurement chain</div>
+<div><span class="n">8</span>Uncertainty</div>
+<div><span class="n">9</span>Detection</div>
+<div><span class="n">10</span>Ego-motion</div>
+<div><span class="n">11</span>Input handling</div>
+<div><span class="n">12</span>Resource discipline</div>
+<div><span class="n">13</span>Serving</div>
+<div><span class="n">14</span>Validation method</div>
+<div><span class="n">15</span>Known limits</div>
+<div><span class="n">II.</span><b>Mathematical formulation</b></div>
+<div><span class="n">16</span>Notation</div>
+<div><span class="n">17</span>Shared core</div>
+<div><span class="n">18</span>Mode A — oblique</div>
+<div><span class="n">19</span>Mode B — nadir</div>
+<div><span class="n">20</span>Scale inference</div>
+<div><span class="n">21</span>Velocity estimation</div>
+<div><span class="n">22</span>Uncertainty model</div>
+<div><span class="n">23</span>Unreliability condition</div>
+<div><span class="n">24</span>Variable glossary</div>
+</div>
+
+<h2 class="part">Part I — Methodology</h2>
+
+<h2>1. The original approach and why it failed</h2>
+<ul>
+<li><code>METERS_PER_PIXEL = 0.05</code> collapsed all of projective geometry into one
+constant. Valid only when the ground is fronto-parallel at a fixed distance — a nadir
+drone shot at known altitude.</li>
+<li><b>It fails on oblique views</b> because metres-per-pixel varies across the frame: a car
+near the horizon covers several times more ground per pixel than one in the foreground.</li>
+<li><b>Speed came from a 3-frame pixel difference</b>, which differentiates tracker jitter
+straight into the output.</li>
+<li><b>Over-speed readings were silently zeroed</b> (<code>if speed &gt; MAX: speed = 0</code>),
+making a tracker glitch indistinguishable from a parked car.</li>
+<li>The constant was also wrong <em>even for nadir</em>: calibration measured
+<b>0.034 m/px</b> against the hand-tuned 0.05 — a ~47% overestimate.</li>
+</ul>
+
+<h2>2. Core decision: geometry, not per-frame depth</h2>
+<ul>
+<li><b>Speed is a derivative.</b> Per-frame depth networks flicker, and differencing
+amplifies that noise. Depth-based speed methods land near 3.6 km/h RMSE; geometric
+calibration reaches ~1.1 km/h.</li>
+<li><b>So: recover scene geometry once, then use exact projective math every frame.</b>
+Vehicles sit on a road; the road is a plane. Given intrinsics and pose relative to that
+plane, a pixel back-projects to an exact 3D point.</li>
+<li><b>Consequence:</b> no neural depth in the runtime loop, no flicker, and residual error
+is a <em>systematic bias</em> that can be calibrated out rather than random noise that cannot.</li>
+<li><b>Distance from camera needs no depth model at all</b> — it falls out of the ray/plane
+intersection as ‖P‖.</li>
+</ul>
+
+<h2>3. Camera model and the plane</h2>
+<ul>
+<li>OpenCV convention: X right, Y down, Z forward, camera at origin.</li>
+<li>Ground plane is <code>{P : n·P = −h}</code> — <code>n</code> the unit up-vector in camera
+coordinates, <code>h</code> the camera height above it.</li>
+<li>Intersection is valid only when <code>n·d &lt; 0</code>. Rays at or above the horizon never
+meet the plane and are <b>rejected rather than clamped</b>.</li>
+<li>World frame: origin at camera nadir, +Z up, so ground points land at z=0 and the camera
+sits at (0,0,h).</li>
+</ul>
+
+<h2>4. Calibration — fixed / oblique camera</h2>
+<ul>
+<li><b>Focal length ← Depth Pro's FOV head.</b> This is the <em>only</em> reason the large
+model is used. Not its metric depth.</li>
+<li><b>An attempt to replace it failed.</b> <code>solve_focal()</code> searched for the focal
+that makes the road planar. It is structurally broken: as f→∞ every point collapses onto a
+line, which is trivially planar, so the residual falls monotonically and the search runs
+away. On a clip of known focal 1589 px it returned the 5760 px ceiling and a 7–8° tilt
+against a 23.75° vanishing-point truth. Retained in code, labelled unreliable, rather than
+deleted — the negative result is worth recording.</li>
+<li><b>Plane orientation ← RANSAC on the depth point cloud.</b> Only the <em>unit normal</em>
+is kept; a normalized vector is invariant to a wrong global scale, which matters because the
+depth model's absolute scale is out of distribution on aerial or unusual views.</li>
+<li><b>Road mask is anchored to vehicles</b> — a dilated band around detected boxes, minus
+the boxes. Fitting to "where cars actually are" keeps the plane off rooftops and canopy.</li>
+<li><b>Plane fit uses the 3×3 covariance, not <code>np.linalg.svd(P)</code>.</b> numpy's SVD
+defaults to <code>full_matrices=True</code>, which for an (N,3) cloud allocates an (N,N)
+factor — 14 GB at N=42k, <b>320 GB at N=200k</b>. This, not the depth model, was what
+crashed the machine twice.</li>
+<li><b>Two frames suffice.</b> The camera is static, so focal and tilt are identical every
+frame, and one frame's road mask already yields ~10⁵ points.</li>
+</ul>
+
+<h2>5. Calibration — drone / nadir camera</h2>
+<ul>
+<li><b>The normal is known exactly:</b> n = [0,0,−1]. Nothing to estimate.</li>
+<li><b>No depth model is loaded at all</b> — and running one would be <em>worse than
+useless</em>. Plane tilt is recovered from the depth <em>gradient</em>, which is ~zero looking
+straight down, so a fit has no signal and converts the model's own error into tilt that is
+not there. Amplified by f/(W/2) ≈ 1.67×, so a 3% depth error becomes ~3° of false tilt.</li>
+<li><b>Depth is genuinely constant.</b> Verified on real footage: 65.20 m at frame centre,
+65.20 m at the corners; only slant range varies (to 70.94 m).</li>
+<li><b>Focal is degenerate with altitude</b> — only the ratio h/f is observable, so ground
+positions and speeds are exact for <em>any</em> chosen f.</li>
+<li><b>This is why a single metres-per-pixel constant is correct overhead</b> — and only
+overhead. The original approach worked there for a real reason.</li>
+</ul>
+
+<h2>6. Scale — the physical anchor</h2>
+<ul>
+<li><b>Absolute scale never comes from a network.</b> It comes from car width against
+<b>1.83 m</b>, a physical constant.</li>
+<li><b>Plus a body-height term.</b> The box's lateral extremities sit on the car body ~0.75 m
+up, not on the road. Omitting that term cost a <b>16% scale error</b>; restoring it moved
+measured lane width from 3.18 m to 3.59 m against a 3.7 m reference.</li>
+<li><b>25th percentile, not median.</b> Length contamination can only <em>inflate</em> the
+measurement, so the samples have a hard floor at the truth with a tail above it — the median
+sits inside the contamination.</li>
+<li><b>The perpendicularity gate alone cannot fix it:</b> since L ≫ W, even 85° off admits
+4.5(0.087) + 1.83(0.996) = 2.21 m, still 21% over.</li>
+<li><b>But the raw minimum is far worse</b> — jitter corrupts the bottom tail. Scored against
+lane markings: min +140%, p5 +12%, <b>p25 +2%</b>, median −6%.</li>
+</ul>
+
+<h2>7. Runtime measurement chain</h2>
+<ul>
+<li><b>Ray through the box <em>centre</em>, intersected at z = 0.75 m</b> — not the box bottom.
+In an oblique view the box bottom is the tyre contact line, but in a nadir view the box is the
+<em>roof</em> outline and its "bottom" is meaningless. Centroid-height intersection is
+approximately correct in both regimes with no branch.</li>
+<li><b>Velocity from a windowed least-squares fit</b> over 0.6 s — not frame differencing.
+Handles irregular dt, gives heading free, transparent to debug.</li>
+<li><b>Timestamps from a real clock or media position, never a frame counter</b> — the live
+path drops frames to stay current.</li>
+</ul>
+
+<h2>8. Uncertainty</h2>
+<ul>
+<li><b>Precision falls off linearly with distance, not quadratically.</b> The naive derivation
+gives d²/(h·f) per pixel of wobble — true for a <em>fixed</em> pixel jitter. But detector
+jitter scales with box size, and a car's box shrinks as 1/d, cancelling one power of d.</li>
+<li><b>Measured on 114 tracked vehicles spanning 20–160 m, scatter scales as d^1.00.</b> The
+quadratic form over-predicted noise by 5–20× and withheld most of a motorway — 35% of
+readings reported versus <b>92%</b> once corrected.</li>
+<li><b>No 1/√n averaging term.</b> Detection bias is <em>correlated</em> across neighbouring
+frames, so extra samples inside one short window buy no precision. Assuming independence
+underestimated real noise threefold.</li>
+<li><b>A reading must clear 2σ to be claimed.</b> 3σ was measurably too strict.</li>
+</ul>
+<div class="callout"><b>Three deliberately distinct output states.</b>
+<code>N km/h</code> — measured and resolvable · <code>0.0 km/h (stopped)</code> — genuinely
+stationary, a <em>valid reading</em> · <code>UNRELIABLE</code> — no claim made.
+Collapsing the third into the second was the original bug: a parked car and a tracker glitch
+must stay tellable apart.</div>
+
+<h2>9. Detection</h2>
+<ul>
+<li><b>The camera mode selects the detector, not just the geometry.</b> A COCO model barely
+recognises a car from directly overhead — measured on the drone clip, yolo11s found <b>0</b>
+vehicles/frame at conf 0.25 and 1–2 at conf 0.10, while visDrone found <b>23–28</b>.</li>
+<li><b>yolo11s over yolo11m for oblique</b> — benchmarked on real footage it is 2× faster
+(34 vs 16 fps) <em>and</em> finds more vehicles (15 vs 10). The larger model is more
+conservative on distant, low-contrast frames. Not a tradeoff.</li>
+<li>Class filtering matches on <em>name</em>, not index, so it survives a model swap.</li>
+</ul>
+
+<h2>10. Ego-motion</h2>
+<ul>
+<li><b>Drift correction for hovering drones:</b> ORB + RANSAC homography back to the
+calibration reference, computed on <em>background only</em> (vehicle boxes masked out) so
+moving traffic cannot drag the estimate.</li>
+<li><b>Gated in both directions:</b> skipped below ~1 px (a static camera, where fitting only
+injects match noise) and rejected above ~50 px (a bad match, not drift).</li>
+<li><b>Why it matters:</b> 2 px of hover drift at 24 fps manufactures a phantom speed for
+every parked car.</li>
+</ul>
+
+<h2>11. Input handling — the layer that actually broke</h2>
+<p style="margin:4pt 0 6pt">Every failure in this project came from here, not from the
+geometry. All were silent: the pipeline ran, produced confident, plausible-looking numbers,
+and nothing announced that an input assumption had been violated.</p>
+<ul>
+<li><b>YouTube's <code>best</code> format is 360p.</b> It only considers <em>progressive</em>
+muxed streams, which YouTube caps at 640×360. A 720p video silently arrived downscaled,
+placing the horizon <em>above</em> the frame and reporting motorway traffic at
+<b>12–16 km/h</b>. Fixed by requesting video-only (<code>bv*</code>).</li>
+<li><b>Live vs recorded need opposite treatment.</b> Live: keep the newest frame, drop stale
+ones, stamp with the wall clock. Recorded: keep every frame with backpressure, stamp by media
+position, pace to real time. A finite video decodes <b>~42× faster than real time</b>.</li>
+<li><b>Replay needs monotonic stamps and history clearing.</b> Without both, tracks straddling
+the loop boundary get a near-zero dt and an absurd speed — observed at 97 km/h for a car
+doing about 46.</li>
+<li><b>Calibration clips are keyed per source.</b> They were a single shared filename with
+"reuse if it exists" logic, so only the first source ever recorded one and <b>every later
+video was calibrated from the first one's footage</b> — three unrelated clips came out with
+byte-identical calibrations and depth maps.</li>
+</ul>
+
+<h2>12. Resource discipline</h2>
+<ul>
+<li><b>One model on the GPU at a time.</b> The detector is explicitly freed before the depth
+model loads. That overlap is what exhausts a 24 GB unified-memory machine.</li>
+<li><b>MPS watermarks set before torch initialises</b> (LOW=0.5, HIGH=0.6 — and both must be
+set, since the low default of 1.4 must not exceed the high) so torch raises a catchable OOM
+instead of taking the OS down.</li>
+<li><b>fp16 on MPS is not a compromise:</b> against a CPU fp32 reference the focal matched to
+0.06% with identical depth percentiles, at 5× the speed and half the memory.</li>
+<li>Depth Pro's input is fixed at 1536×1536 (patch_size 384 × ratios [0.25,0.5,1]) — not
+reducible, so the cost is ~7 GB regardless of source resolution.</li>
+</ul>
+
+<h2>13. Serving</h2>
+<ul>
+<li>stdlib <code>http.server</code> + MJPEG multipart — one endpoint needs no framework.</li>
+<li><b>Deliberately HTTP/1.0:</b> an MJPEG body is endless with no Content-Length; under
+HTTP/1.1 a client expects a length or chunked encoding, gets neither, and treats the response
+as malformed.</li>
+<li><b>The stream element self-heals.</b> An MJPEG <code>&lt;img&gt;</code> never reconnects on
+its own, so it attaches only while visible and re-arms on error. Reconnect URLs carry a
+cache-buster, which means routes must match on <em>path</em>, not the whole request string.</li>
+<li><b>Reader threads join before releasing the capture.</b> Calling
+<code>VideoCapture.release()</code> while another thread is inside <code>read()</code>
+segfaults the interpreter with no traceback.</li>
+</ul>
+
+<h2>14. Validation method</h2>
+<ul>
+<li><b>Never validate against intuition; validate against a measurable reference.</b> An early
+assumption that one clip was a "60–110 km/h highway" was wrong and sent the investigation
+hunting a non-existent bug for a long time. It was an urban arterial.</li>
+<li><b>References used:</b> the lane-marking vanishing point (tilt agreed to 0.6°), lane width
+against 3.7 m / 3.65 m standards (+2%), the visible horizon row versus the calibrated
+horizon_row (206 vs ~199), and parked cars that must read ~0.</li>
+<li><b>Cross-validation across independent paths:</b> two cameras, two calibration methods
+(depth-based oblique, model-free nadir), converging on the same physical answer.</li>
+<li><b>The end-to-end check reports NOT EXERCISED</b> when a clip contains no stationary
+vehicle, rather than passing vacuously.</li>
+<li><b>Ground truth is taken from each track's own trajectory</b>, never from the speed the
+pipeline reported — otherwise the check merely confirms its own answer.</li>
+</ul>
+
+<h2>15. Known limits</h2>
+<ul>
+<li><b>The focal head is a single point of failure with no cross-check.</b> Every silent
+failure was diagnosed by hand-comparing horizon_row to the visible horizon. Automating that
+comparison is the highest-value remaining addition.</li>
+<li><b>Single flat plane</b> — hills, banked curves and multi-level junctions all violate it.</li>
+<li><b>No lens distortion model</b> — wide-angle and security cameras carry systematic error
+toward the frame edges.</li>
+<li><b>The camera must not move;</b> any pan/tilt/zoom silently invalidates calibration and
+nothing detects it.</li>
+<li><b>Detection is the real floor</b> — night footage found almost nothing regardless of how
+good the geometry was.</li>
+<li><b>Evidence base is four scenes, all fixed cameras</b> (three oblique, one nadir). That is
+not a broad sample.</li>
+<li>At 110–160 m the noise model sits at 0.66× — slightly optimistic at extreme range.</li>
+</ul>
+
+<h2 class="part">Part II — Mathematical Formulation</h2>
+
+<h2>16. Notation</h2>
+<table class="mono">
+<tr><th>Symbol</th><th>Meaning</th><th>Units</th></tr>
+<tr><td>(u, v)</td><td>pixel coordinates</td><td>px</td></tr>
+<tr><td>f, cx, cy</td><td>focal length, principal point</td><td>px</td></tr>
+<tr><td>n</td><td>unit up-vector, in <b>camera</b> coordinates</td><td>—</td></tr>
+<tr><td>h</td><td>camera height above the ground plane</td><td>m</td></tr>
+<tr><td>z</td><td>height above the road of the measured point</td><td>m</td></tr>
+<tr><td>P</td><td>3D point, camera frame</td><td>m</td></tr>
+<tr><td>X = (x,y,z)</td><td>3D point, world frame</td><td>m</td></tr>
+</table>
+<p>Camera frame is OpenCV: X right, Y down, Z forward, camera at the origin.</p>
+
+<h2>17. Shared core — both modes</h2>
+<p><b>Back-projection ray</b> (unnormalised, Z-component 1):</p>
+<pre>d(u,v) = [ (u−cx)/f ,  (v−cy)/f ,  1 ]ᵀ</pre>
+<p><b>Ground plane</b>, and the plane at height z above it:</p>
+<pre>n · P = −h                 n · P = −(h − z)</pre>
+<p><b>Ray–plane intersection.</b> Substituting P = t·d:</p>
+<pre>n·(t d) = −(h−z)     ⟹     t = −(h − z) / (n · d)
+
+P = t · d                                    [camera frame]</pre>
+<p><b>Validity.</b> The ray meets the plane in front of the camera only when</p>
+<pre>n · d &lt; 0</pre>
+<p><b>Horizon row.</b> Setting n·d = 0 at u = cx:</p>
+<pre>v_horizon = cy − f · n_z / n_y</pre>
+<p><b>World transform.</b> Build an orthonormal basis from n:</p>
+<pre>ŵ = normalise( ẑ − (ẑ·n) n ),   ẑ = [0,0,1]ᵀ     (fallback ŷ if degenerate)
+r̂ = ŵ × n
+
+X = [ P·r̂ ,  P·ŵ ,  P·n + h ]ᵀ</pre>
+<p>Ground points land at x_z = 0; the camera sits at (0,0,h). Slant distance,
+reported as "distance from camera", is D = ‖P‖.</p>
+
+<h2>18. Mode A — fixed / oblique camera</h2>
+<p>Here both n and f are <b>estimated</b>.</p>
+<h3>18.1 Intrinsics</h3>
+<pre>f = (W_img / 2) / tan(FOV_h / 2),    cx = W_img/2,   cy = H_img/2</pre>
+<h3>18.2 Ground-plane normal</h3>
+<p>With D(u,v) the metric depth, back-project road-masked pixels into a cloud:</p>
+<pre>𝒫 = { D(u,v) · d(u,v)  :  (u,v) ∈ M_road }
+
+M_road = dilate(⋃ boxes, 41) \ (⋃ boxes)</pre>
+<p>Fit by RANSAC, then refit on inliers via the covariance eigenproblem:</p>
+<pre>c = mean(𝒫_in)
+Σ = cov(𝒫_in − c)
+n = eigenvector of Σ with the smallest eigenvalue   (direction of least variance)</pre>
+<p>Only n is retained — it is scale-invariant, so a wrong global depth scale does
+not rotate it.</p>
+<h3>18.3 Resulting depth profile</h3>
+<pre>D(v) ≈ h·f / (v − v_horizon)</pre>
+<div class="callout"><b>Why tilt error is catastrophic in this mode.</b> D diverges at the
+horizon, so a small error in n moves v_horizon and rescales the entire far field. A horizon
+placed above the frame compressed motorway traffic to 12–16 km/h.</div>
+
+<h2>19. Mode B — drone / nadir camera</h2>
+<p>Here n is <b>known</b> and f is <b>unidentifiable</b>.</p>
+<pre>n = [0, 0, −1]ᵀ        (exact — not estimated)
+f := W_img             (arbitrary; see 19.2)</pre>
+<h3>19.1 Collapse of the intersection</h3>
+<p>Since n·d = −1 identically:</p>
+<pre>t = −(h−z)/(−1) = h − z              ← independent of (u,v)
+
+P = (h−z) · [ (u−cx)/f , (v−cy)/f , 1 ]ᵀ</pre>
+<p>The Z-component of every ground point is exactly h−z: <b>depth is constant across
+the whole frame.</b> Only the slant distance varies:</p>
+<pre>D(u,v) = (h−z) · √( ((u−cx)/f)² + ((v−cy)/f)² + 1 )</pre>
+<h3>19.2 The degeneracy</h3>
+<pre>x = (h−z)(u−cx)/f          y = (h−z)(v−cy)/f</pre>
+<p>h and f appear <b>only as the ratio h/f</b>. Therefore any (h, f) with the same ratio
+gives identical ground positions and identical speeds; fixing f arbitrarily and solving h
+from §20 recovers the correct ratio. Only D = ‖P‖ depends on the split, which a known
+altitude resolves:</p>
+<pre>f′ = f · H_true / h ,   h′ = H_true     ⟹    h′/f′ = h/f    (positions unchanged)</pre>
+<div class="callout"><b>Formal reason the original constant worked overhead.</b> A single
+METERS_PER_PIXEL = h/f is <em>exactly</em> the correct model for a nadir view — and only for
+a nadir view.</div>
+
+<h2>20. Scale inference — both modes</h2>
+<h3>20.1 Measurement</h3>
+<p>For each tracked <em>car</em>, back-project the box's bottom corners onto the road plane
+using an assumed height h = 1, z = 0:</p>
+<pre>p_L = ground(x₁, y₂ | h=1),   p_R = ground(x₂, y₂ | h=1)
+e   = p_R − p_L,              w₁ = ‖e‖</pre>
+<h3>20.2 Admissibility gates</h3>
+<p>With Δ = c_t − c_(t−5) the ground displacement over 5 frames:</p>
+<pre>(i)   ‖Δ‖ ≥ 0.2 · w₁                        reject parked / crawling
+(ii)  |Δ·e| / (‖Δ‖·w₁) &lt; 0.5                box edge within 60° of ⊥ to travel</pre>
+<h3>20.3 Solving for height</h3>
+<p>Ground distances scale linearly with h, and the box's lateral extremities lie on the
+<em>body</em> at height z_b, not on the road. Rays through them extended to z=0 spread by
+h/(h−z_b):</p>
+<pre>w₁ · h = W · h/(h − z_b)      ⟹      w₁ = W / (h − z_b)
+
+                              ⟹      h = W / w₁ + z_b</pre>
+<h3>20.4 Which statistic</h3>
+<p>For a car whose heading makes angle φ with the image horizontal, the axis-aligned box
+spans</p>
+<pre>extent(φ) = L·|cos φ| + W·|sin φ|   ≥   W ,    equality iff φ = 90°</pre>
+<p>The error is <b>one-sided</b> — contamination by vehicle <em>length</em> can only inflate
+w₁. The sample distribution has a hard floor at the truth with a tail above it, so:</p>
+<pre>h = W / percentile₂₅({w₁}) + z_b</pre>
+
+<h2>21. Velocity estimation</h2>
+<p>Given the trajectory window {(tᵢ, xᵢ, yᵢ)}, i = 1…N, spanning T = t_N − t₁ ≈ 0.6 s:</p>
+<pre>S_tt = Σ (tᵢ − t̄)²
+v_x  = Σ (tᵢ − t̄)(xᵢ − x̄) / S_tt              (likewise v_y)
+
+speed   = 3.6 · √(v_x² + v_y²)                 [km/h]
+heading = atan2(v_y, v_x)</pre>
+<p>Diagnostics carried alongside the estimate:</p>
+<pre>rᵢ = ‖ (xᵢ, yᵢ) − (v·tᵢ + b) ‖
+r  = maxᵢ rᵢ                                    worst-case scatter [m]
+
+se = 3.6 · √( se_x² + se_y² ),
+     se_a = √( Σ r_aᵢ² / ((N−2) · S_tt) )       slope standard error [km/h]</pre>
+
+<h2>22. Uncertainty model</h2>
+<p><b>Position noise.</b> Detector jitter scales with box size, and box width scales as
+1/D — the two effects cancel one power of D:</p>
+<pre>σ_px  ≈ κ · box_width = κ · W · f / D
+σ_pos = D² · σ_px / (h·f) = κ · W · D / h        ← linear in D</pre>
+<p><b>Speed noise floor</b> (no 1/√N term — jitter is correlated within a window):</p>
+<pre>σ_v = 3.6 · 2 σ_pos / T = 3.6 · 2 κ W D / (h T)   [km/h]</pre>
+<p><b>Combined uncertainty</b> — the worse of measured scatter and geometric limit:</p>
+<pre>σ = max( se , σ_v )</pre>
+
+<h2>23. Unreliability condition</h2>
+<p>A reading is reported <b>UNRELIABLE</b> if and only if:</p>
+<pre>    speed &gt; 200                                 (A)  implausible
+ ∨  r     &gt; 1.5                                 (B)  track scatter / ID swap
+ ∨  ( σ &gt; 3.0  ∧  speed &lt; 2·σ )                 (C)  below the noise floor</pre>
+<p>Otherwise:</p>
+<pre>speed &lt; 3.0   →   "stopped"    (a valid measurement of zero)
+else          →   "moving"     (report speed)
+N &lt; 4         →   "warmup"     (no claim yet)</pre>
+<div class="callout neg"><b>(C) in words.</b> It applies only when the noise floor exceeds the
+stopped threshold — i.e. when the measurement genuinely cannot separate <em>stationary</em>
+from <em>moving slowly</em>. Within that regime a reading must clear 2σ to be claimed.
+Failing (C) yields UNRELIABLE, <b>never 0</b>: collapsing those two states was the original bug.</div>
+
+<h2>24. Variable glossary — origin of every quantity</h2>
+<table class="mono">
+<tr><th>Symbol</th><th>Value / source</th><th>How obtained</th></tr>
+<tr><td>f</td><td>measured</td><td><b>Mode A:</b> Depth Pro FOV head. <b>Mode B:</b> set to W_img, arbitrary (§19.2)</td></tr>
+<tr><td>cx, cy</td><td>W_img/2, H_img/2</td><td>assumed principal point at image centre</td></tr>
+<tr><td>n</td><td>measured / known</td><td><b>A:</b> smallest-eigenvalue eigenvector of the road cloud covariance. <b>B:</b> exactly [0,0,−1]</td></tr>
+<tr><td>h</td><td>derived</td><td>W / p25(w₁) + z_b — from car width, never from a network</td></tr>
+<tr><td>W</td><td>1.83 m</td><td>physical constant, median passenger-car body width</td></tr>
+<tr><td>z_b</td><td>0.75 m</td><td>assumed car centroid/body height; also the runtime plane offset</td></tr>
+<tr><td>D(u,v)</td><td>measured</td><td>metric depth — <b>calibration only</b>, discarded before runtime</td></tr>
+<tr><td>κ</td><td>0.006</td><td>JITTER_FRAC; fitted so predicted σ matches observed scatter (d^1.00, 114 vehicles)</td></tr>
+<tr><td>T</td><td>0.6 s</td><td>SPEED_WINDOW_S, the velocity fit window</td></tr>
+<tr><td>N</td><td>≈ T·fps</td><td>samples in window; MIN_SAMPLES = 4 to report anything</td></tr>
+<tr><td>tᵢ</td><td>clock or idx/fps</td><td><b>live:</b> wall clock. <b>recorded:</b> media position — never a frame counter</td></tr>
+<tr><td>se</td><td>computed</td><td>OLS slope standard error (§21)</td></tr>
+<tr><td>σ_v</td><td>computed</td><td>geometric noise floor (§22)</td></tr>
+<tr><td>2 in (C)</td><td>SIGMA_TO_REPORT</td><td>ordinary "distinguishable from zero" bar; 3 was measurably too strict</td></tr>
+<tr><td>3.0</td><td>STOPPED_KMH</td><td>stopped threshold, and the floor above which (C) engages</td></tr>
+<tr><td>1.5 m</td><td>MAX_FIT_RESIDUAL_M</td><td>catches ID swaps; p90 of real residuals is 0.88 m</td></tr>
+<tr><td>200</td><td>MAX_PLAUSIBLE_KMH</td><td>absurd-reading guard</td></tr>
+</table>
+<div class="callout"><b>Fitted, not derived.</b> Four numbers were tuned on a handful of
+clips and are exposed as named constants rather than buried: percentile₂₅, κ = 0.006,
+SIGMA_TO_REPORT = 2.0, and z_b = 0.75. Everything else is either exact geometry or a
+physical constant.</div>
+
+</body></html>

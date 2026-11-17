@@ -1,0 +1,97 @@
+# Tuning knobs for the drone parking pipeline.
+#
+# A real drone over real asphalt never matches the numbers that look right on
+# paper: altitude drifts, glare moves, wind changes how much a hovering airframe
+# wanders. Everything tunable lives here so none of it gets buried in the code.
+
+# The camera's own lot. The recorded demo replays into PARKING-A, so the two
+# never overwrite each other's bays when you switch between them.
+lot_code: CAMERA-1             # parking_lots.code in Supabase
+source: "camera:AV TO USB2.0"  # analog camera's USB dongle by name; or a file / rtsp://...
+drone_name: drone-1
+
+camera:
+  size: 720x480                # the dongle's best mode (it also does 640x480, 480x320, 320x240)
+  fps: 25
+  # Below this mean brightness, with no texture, the frame counts as "transmitter
+  # off" and bays are held. Raise it if a switched-off receiver shows dark grey.
+  black_level: 16
+  # Picture clean-up, done by ffmpeg on every frame before anything sees it -
+  # the dashboard, detection and the calibration reference alike. Applied in
+  # this order; delete a line to drop a step, or use [] for the raw feed.
+  # Measured on this camera: noise -61%, colour speckle -61%, scan lines -38%.
+  # Restart the system after changing it.
+  filters:
+    # evens out the analog line structure (and comb edges, if ever interlaced)
+    - bwdif=mode=send_frame:parity=tff:deint=all
+    # smoothing across space and time - luma:colour in-frame : luma:colour across
+    # frames. Higher is smoother, but too high smears moving cars.
+    - hqdn3d=8:10:12:14
+    # extra vertical-only smoothing of the horizontal analog lines
+    - gblur=sigma=0.01:sigmaV=0.8
+    # Lens correction: the REES52 RS2967's 170-degree 1.8 mm lens is a fisheye
+    # (a normal 1.8 mm lens on its 3.5964 x 2.7084 mm sensor would see ~102 deg).
+    # From the spec sheet - 1.8 mm focal, 5.55 um pixels, 720x480 capture of the
+    # sensor's width and height - an equidistant fisheye of 352 x 319 px/radian.
+    # A plumb-line fit on this camera's own frames put the focal at 1.98 mm (lens
+    # tolerance), giving the input field of view below: 106.4 x 78.4 deg. Output
+    # is a normal straight-line view, 100 x 77 deg with square pixels - the widest
+    # with no black corners. Straight edges bend 55% less.
+    # Changing this changes the geometry: recalibrate the camera afterwards.
+    - v360=input=fisheye:ih_fov=106.4:iv_fov=78.4:output=flat:h_fov=100:v_fov=77.0:w=720:h=480:interp=linear
+    # sharpening at object scale, after the noise is gone (0.7 = amount)
+    - unsharp=7:7:0.7:5:5:0
+    # tone curve, input/output from 0 (black) to 1 (white), last so nothing can
+    # push the highlights back up: highlights roll off from 0.7 and white comes
+    # down to 0.75; shadows lift a little; midtones (0.5) stay put. Lower the
+    # last values to dim further (e.g. 0.85/0.64 1/0.70). Keep 0/x small -
+    # camera-off detection needs black to stay dark.
+    - curves=interp=pchip:master='0/0.03 0.15/0.19 0.5/0.5 0.7/0.63 0.85/0.70 1/0.75'
+
+detection:
+  # Trained on drone footage. For a wall/pole camera a standard COCO model
+  # (e.g. yolo11s.pt) may detect better; vehicle classes are picked by name,
+  # so swapping the weights here is all it takes.
+  weights: visDrone.pt
+  imgsz: 960                   # matches the speed-tracking prototype
+  conf: 0.10                   # deliberately low: aerial vehicles are small
+  frame_skip: 2
+  device: null                 # null = let ultralytics choose (mps/cuda/cpu)
+
+tracking:
+  # ByteTrackTracker's defaults assume ~0.7-confidence detections. Ours run at
+  # 0.10 because vehicles are tiny from altitude, so activation has to come down
+  # or almost every track is rejected before it starts.
+  track_activation_threshold: 0.15
+  minimum_consecutive_frames: 2
+  minimum_iou_threshold: 0.10
+  lost_track_buffer: 60
+
+registration:
+  # Aligns every frame to the reference image. On a drone it undoes drift; on a
+  # fixed mount it undoes pole sway and wind shake. If it can't align a frame
+  # (night, glare) it keeps the last good alignment.
+  max_features: 2000
+  ratio_test: 0.75
+  ransac_reproj_threshold: 4.0
+  min_inliers: 25              # below this the frame is marked registration_ok=false
+  min_inlier_ratio: 0.15
+  max_scale_change: 1.6
+  mask_dilate_px: 8            # padding around vehicle boxes excluded from matching
+
+occupancy:
+  # Where a car "is": height above its box bottom, as a fraction of the box.
+  # 0.5 (centroid) for a straight-down view; ~0.3 for a wall or pole camera,
+  # where the top of the box is roof hanging over the bay behind.
+  anchor: 0.3
+  park_window_s: 10.0
+  park_threshold_m: 1.5        # moved less than this across the window => parked
+  slot_tolerance_m: 0.5        # how far outside a bay's line a centroid may still count
+  debounce_k: 3                # consecutive agreeing samples before a bay changes state
+  track_ttl_s: 5.0
+
+writes:
+  snapshot_interval_s: 20
+  flush_interval_s: 5
+  queue_path: .write_queue.jsonl
+  evidence_frames: true

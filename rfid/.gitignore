@@ -1,0 +1,5 @@
+transmitter/secrets.h
+gateway/.env
+__pycache__/
+*.pyc
+*.hex

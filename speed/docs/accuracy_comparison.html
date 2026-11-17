@@ -1,0 +1,233 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Drone vs Fixed Camera — Accuracy Comparison</title>
+<style>
+@page { size: A4; margin: 16mm 15mm; }
+* { box-sizing: border-box; }
+body { font: 10pt/1.5 "Georgia","Times New Roman",serif; color:#16181c; margin:0; }
+h1 { font-size: 20pt; font-weight:600; margin:0 0 3pt; letter-spacing:-0.2pt; }
+h2 { font-size: 13pt; font-weight:600; margin:18pt 0 7pt; padding-bottom:3pt;
+     border-bottom:1px solid #c8ccd2; page-break-after:avoid; }
+h3 { font-size:10.5pt; font-weight:600; margin:12pt 0 4pt; page-break-after:avoid; }
+p, li { orphans:3; widows:3; }
+ul { margin:5pt 0; padding-left:15pt; } li { margin:3.5pt 0; }
+code { font-family:"SF Mono","Menlo",monospace; font-size:8.6pt; background:#f2f3f5; padding:0.5pt 2.5pt; border-radius:2px; }
+pre { font-family:"SF Mono","Menlo",monospace; font-size:8.4pt; line-height:1.45;
+      background:#f7f8fa; border:1px solid #dfe2e7; border-left:2.5pt solid #7a8290;
+      border-radius:3px; padding:7pt 9pt; margin:7pt 0; white-space:pre-wrap; page-break-inside:avoid; }
+table { border-collapse:collapse; width:100%; margin:8pt 0; font-size:8.6pt; }
+table.short { page-break-inside:avoid; }
+tr { page-break-inside:avoid; }
+th { text-align:left; font-weight:600; border-bottom:1.2pt solid #16181c; padding:4pt 6pt; vertical-align:bottom; }
+td { border-bottom:0.5pt solid #dfe2e7; padding:4pt 6pt; vertical-align:top; }
+td.num, th.num { text-align:right; font-variant-numeric:tabular-nums;
+                 font-family:"SF Mono","Menlo",monospace; font-size:8.2pt; }
+.title-block { border-bottom:2pt solid #16181c; padding-bottom:9pt; margin-bottom:14pt; }
+.sub { color:#5a6069; font-size:9.5pt; margin:3pt 0 0; }
+.part { page-break-before:always; }
+.win { color:#1a6b2a; font-weight:600; }
+.lose { color:#9a2222; font-weight:600; }
+.cols { display:flex; gap:12pt; margin:8pt 0; }
+.col { flex:1; border:1px solid #dfe2e7; border-radius:5px; padding:9pt 11pt; page-break-inside:avoid; }
+.col.a { border-top:3pt solid #2a7d2e; } .col.b { border-top:3pt solid #1a5fb4; }
+.col h3 { margin-top:0; }
+.col ul { padding-left:13pt; margin:4pt 0; } .col li { margin:3pt 0; font-size:9pt; }
+.plus li::marker { color:#1a6b2a; } .minus li::marker { color:#9a2222; }
+.callout { background:#fdf6ec; border:1px solid #e8d5b0; border-radius:3px; padding:7pt 9pt; margin:8pt 0; font-size:9pt; page-break-inside:avoid; }
+.callout b { color:#8a5a00; }
+.meas { background:#eef4fb; border:1px solid #c3d6ea; border-radius:3px; padding:7pt 9pt; margin:8pt 0; font-size:8.8pt; page-break-inside:avoid; }
+.meas b { color:#1a4f80; }
+.foot { color:#5a6069; font-size:8.5pt; margin-top:3pt; }
+strong { font-weight:600; }
+</style></head><body>
+
+<div class="title-block">
+<h1>Drone vs Fixed Camera</h1>
+<p class="sub">Accuracy comparison of the two camera configurations in this system.
+All figures measured on the project's own footage and calibrations — none estimated.</p>
+</div>
+
+<h2>1. Verdict first</h2>
+<p><strong>The drone (overhead) configuration is measurably more accurate</strong>, and the
+reason is geometric rather than incidental: looking straight down, one pixel maps to the
+same ground distance everywhere in frame, and the camera sits ten times further from the
+road. Both effects work in its favour and neither depends on tuning.</p>
+
+<p>The fixed camera's advantage is not accuracy — it is <em>practicality</em>: it can run
+unattended indefinitely, which a drone cannot.</p>
+
+<div class="meas"><b>Headline measurements</b> (this system, this footage)<br>
+Scale uniformity across frame — drone <b>1.0×</b>, fixed <b>2.3×</b> ·
+Speed noise floor at 40 m — drone <b>0.1 km/h</b>, fixed <b>0.7 km/h</b> ·
+Ground coverage — drone <b>68 m</b> wide uniformly, fixed <b>12–26 m</b> ·
+Readings usable — drone <b>~99%</b>, fixed <b>92%</b></div>
+
+<h2>2. Accuracy comparison</h2>
+
+<table>
+<tr><th>Property</th><th>Drone / overhead</th><th>Fixed / oblique</th><th>Winner</th></tr>
+
+<tr><td><strong>Scale uniformity</strong><br><span class="foot">metres-per-pixel across the frame</span></td>
+    <td class="num">0.0354 everywhere<br><span class="foot">spread 1.0×</span></td>
+    <td class="num">0.0066 → 0.0148<br><span class="foot">spread 2.3×</span></td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Speed noise floor</strong><br><span class="foot">σ<sub>v</sub> at 20 / 40 / 80 / 120 m</span></td>
+    <td class="num">0.0 / 0.1 / 0.2 / 0.2</td>
+    <td class="num">0.4 / 0.7 / 1.5 / 2.2</td>
+    <td class="win">Drone ~10×</td></tr>
+
+<tr><td><strong>Geometric error sources</strong></td>
+    <td>Ground normal known <em>exactly</em> — <code>[0,0,−1]</code>. No tilt to estimate, so no tilt error.</td>
+    <td>Normal estimated from a depth model; focal from its FOV head. Both can be wrong.</td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Failure mode if calibration is off</strong></td>
+    <td>Uniform scale error only — all speeds off by the same %, and detectable by one lane-width check.</td>
+    <td>Tilt error rescales the <em>far field</em> non-linearly; near-field can look fine while distant readings are badly wrong.</td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Ground coverage</strong><br><span class="foot">usable measurement area</span></td>
+    <td class="num">68 m wide × 23 m<br><span class="foot">uniform quality</span></td>
+    <td class="num">12→26 m wide × 14 m<br><span class="foot">quality falls with range</span></td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Readings usable</strong><br><span class="foot">not withheld as UNRELIABLE</span></td>
+    <td class="num">~99%</td>
+    <td class="num">92%</td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Occlusion</strong></td>
+    <td>Near-zero — vehicles cannot hide behind each other from directly above.</td>
+    <td>Frequent — a truck masks several cars; queues overlap heavily at range.</td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Absolute scale source</strong></td>
+    <td colspan="2" style="text-align:center">Identical — median car width vs 1.83 m. Neither trusts a network for scale.</td>
+    <td>Tie</td></tr>
+
+<tr><td><strong>Validated absolute accuracy</strong></td>
+    <td>Parked cars read <strong>0.05–0.38 km/h</strong> over 29 s (true value 0)</td>
+    <td>Lane width <strong>+2%</strong> vs 3.7 m; tilt within <strong>0.6°</strong> of vanishing-point truth</td>
+    <td>Both ≈5–10%</td></tr>
+
+<tr><td><strong>Distortion sensitivity</strong></td>
+    <td>Low — drone lenses are typically well-corrected, and the measured area is central.</td>
+    <td>Higher — wide-angle CCTV bows straight lines; no distortion model is fitted.</td>
+    <td class="win">Drone</td></tr>
+
+<tr><td><strong>Detector difficulty</strong></td>
+    <td>Small targets, but needs an aerial-trained model (visDrone). A COCO model finds <strong>0/frame</strong>.</td>
+    <td>Large, canonical vehicle aspect. Standard COCO models work well.</td>
+    <td class="lose">Fixed</td></tr>
+
+<tr><td><strong>Platform stability</strong></td>
+    <td>Hover drift corrupts speeds; needs homography drift correction. 2 px at 24 fps invents a phantom speed.</td>
+    <td>Rigidly mounted — no ego-motion at all.</td>
+    <td class="lose">Fixed</td></tr>
+
+<tr><td><strong>Continuous operation</strong></td>
+    <td>Battery-limited, typically 20–40 min per flight.</td>
+    <td>Indefinite — mains-powered, permanent.</td>
+    <td class="lose">Fixed</td></tr>
+
+<tr><td><strong>Calibration cost</strong></td>
+    <td class="num">~10 s, no depth model</td>
+    <td class="num">~30 s, ~7 GB Depth Pro</td>
+    <td class="win">Drone</td></tr>
+</table>
+
+<h2 class="part">3. Strengths and weaknesses</h2>
+
+<div class="cols">
+  <div class="col a">
+    <h3 style="color:#2a7d2e">Drone / overhead</h3>
+    <p style="margin:2pt 0 4pt"><strong>Advantages</strong></p>
+    <ul class="plus">
+      <li><strong>Exact geometry.</strong> The ground normal is known, not estimated — the single largest error source in the fixed system does not exist here.</li>
+      <li><strong>Uniform accuracy.</strong> A vehicle at the frame edge is measured as precisely as one at the centre (1.0× spread).</li>
+      <li><strong>~10× lower noise floor</strong> at equal target distance, because the camera is far from the road.</li>
+      <li><strong>Effectively no occlusion</strong> — every vehicle is separately visible.</li>
+      <li><strong>Wide, even coverage</strong> — 68 m across, versus a 12–26 m wedge.</li>
+      <li><strong>No depth model.</strong> Faster calibration, ~7 GB less memory, one fewer thing to be wrong.</li>
+      <li><strong>Benign failure mode</strong> — errors are uniform and easy to detect.</li>
+    </ul>
+    <p style="margin:6pt 0 4pt"><strong>Disadvantages</strong></p>
+    <ul class="minus">
+      <li><strong>Cannot run unattended.</strong> Battery limits sessions to tens of minutes — disqualifying for permanent enforcement.</li>
+      <li><strong>Requires an aerial-trained detector.</strong> A COCO model detects essentially nothing from overhead (0/frame vs 23–28).</li>
+      <li><strong>Hover drift</strong> must be corrected or parked cars acquire phantom speeds.</li>
+      <li><strong>Small targets</strong> — vehicles occupy few pixels, so detection confidence must be lowered.</li>
+      <li><strong>Assumes true nadir.</strong> Tilt is not measured, so an oblique clip in this mode yields confident nonsense (observed: 71.98 m, 90° tilt).</li>
+      <li><strong>Regulatory limits</strong> on flight over traffic in many jurisdictions.</li>
+    </ul>
+  </div>
+
+  <div class="col b">
+    <h3 style="color:#1a5fb4">Fixed / oblique</h3>
+    <p style="margin:2pt 0 4pt"><strong>Advantages</strong></p>
+    <ul class="plus">
+      <li><strong>Runs indefinitely</strong> — the only configuration suitable for permanent, unattended enforcement.</li>
+      <li><strong>No ego-motion.</strong> Rigid mounting removes an entire class of error.</li>
+      <li><strong>Standard detectors work.</strong> Vehicles appear in the canonical aspect COCO models were trained on.</li>
+      <li><strong>Large near-field targets</strong> — a close vehicle spans hundreds of pixels, giving excellent near-range precision.</li>
+      <li><strong>Uses existing infrastructure</strong> — poles, overpasses, and installed CCTV.</li>
+      <li><strong>Recognisable evidence frames</strong> — a side/front view is more identifiable than a roof.</li>
+    </ul>
+    <p style="margin:6pt 0 4pt"><strong>Disadvantages</strong></p>
+    <ul class="minus">
+      <li><strong>Accuracy varies 2.3× across the frame</strong> — the same vehicle measures differently depending on where it is.</li>
+      <li><strong>Tilt must be estimated</strong> from a depth model, with no independent cross-check on its focal-length head.</li>
+      <li><strong>Far-field errors amplify.</strong> Depth diverges at the horizon, so small tilt errors rescale distant readings badly.</li>
+      <li><strong>Occlusion is routine</strong> — one truck can hide several vehicles.</li>
+      <li><strong>8% of readings withheld</strong> as below the noise floor, nearly all at range.</li>
+      <li><strong>Needs Depth Pro</strong> — ~7 GB and ~13 s at calibration.</li>
+      <li><strong>Lens distortion unmodelled</strong>, biasing measurements toward frame edges.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>4. Why the drone is more accurate — the mechanism</h2>
+
+<p>Both effects follow from one formula. The speed noise floor in this system is</p>
+<pre>sigma_v  =  2 · JITTER_FRAC · W · d / (h · T) · 3.6      [km/h]</pre>
+<p>where <code>d</code> is target distance and <code>h</code> the camera height. Accuracy is
+governed by the ratio <strong>d/h</strong>, and the two configurations sit at opposite ends of it:</p>
+
+<table class="short">
+<tr><th>Configuration</th><th class="num">Camera height h</th><th class="num">Typical d</th><th class="num">d / h</th><th class="num">σ<sub>v</sub></th></tr>
+<tr><td>Drone / overhead</td><td class="num">68.0 m</td><td class="num">70 m</td><td class="num">1.0</td><td class="num">0.1 km/h</td></tr>
+<tr><td>Fixed / oblique</td><td class="num">7.0 m</td><td class="num">40 m</td><td class="num">5.7</td><td class="num">0.7 km/h</td></tr>
+</table>
+
+<p>A drone at 68 m looking down has <code>d/h ≈ 1</code>; a 7 m pole looking along the road has
+<code>d/h ≈ 6</code>. The drone's altitude <em>is</em> its accuracy.</p>
+
+<div class="callout"><b>The uniformity point is the more important one.</b> The fixed camera's
+2.3× scale spread means a measurement's quality depends on where in the frame it happened —
+so a single accuracy figure for that camera is misleading, and per-reading uncertainty
+must be tracked. Overhead, one number describes the whole frame.</div>
+
+<h2>5. Honest limits of this comparison</h2>
+<ul>
+<li><strong>Neither has been validated against a reference speed instrument.</strong> No radar or GPS ground truth was available. Accuracy here is inferred from geometric self-consistency (lane width, vanishing point, parked cars reading zero), which bounds error at roughly <strong>5–10%</strong> but does not prove it.</li>
+<li><strong>Sample size is small</strong> — four scenes, three oblique and one nadir. Figures are indicative, not statistical.</li>
+<li><strong>The comparison is of these two configurations</strong>, not of drones versus fixed cameras in general. A 30 m gantry camera would sit much closer to the drone's numbers.</li>
+<li><strong>Four constants are empirically tuned</strong> (<code>p25</code>, <code>JITTER_FRAC</code>, <code>SIGMA_TO_REPORT</code>, <code>z_b</code>) on a handful of clips, and both configurations inherit any error in them.</li>
+<li><strong>The drone figures come from a hovering platform.</strong> A drifting or manually-flown drone would be materially worse.</li>
+</ul>
+
+<h2>6. Recommendation</h2>
+<table class="short">
+<tr><th>Use case</th><th>Configuration</th><th>Reason</th></tr>
+<tr><td>Permanent enforcement</td><td><strong>Fixed</strong></td><td>Accuracy is irrelevant if the system cannot stay running.</td></tr>
+<tr><td>Traffic survey / study</td><td><strong>Drone</strong></td><td>Best accuracy and widest uniform coverage over a bounded session.</td></tr>
+<tr><td>Junction / roundabout analysis</td><td><strong>Drone</strong></td><td>No occlusion, and all approaches measured equally.</td></tr>
+<tr><td>Calibrating or auditing a fixed camera</td><td><strong>Drone</strong></td><td>Its uniform, higher-accuracy measurements make a usable reference for the fixed installation.</td></tr>
+<tr><td>Evidence requiring vehicle identification</td><td><strong>Fixed</strong></td><td>A roof view identifies a vehicle poorly.</td></tr>
+</table>
+
+<p class="foot">Figures measured from <code>calib/car.json</code> (fixed: f=1589 px, h=7.04 m,
+tilt 23.1°) and <code>calib/drone.json</code> (drone: f=1920 px, h=67.99 m, nadir), and from
+end-to-end runs on <code>data/car_video.mp4</code> and <code>data/drone_video.mp4</code>.</p>
+
+</body></html>

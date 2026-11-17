@@ -1,0 +1,764 @@
+{
+ "generated_at": "2026-08-19T09:15:00+00:00",
+ "source": "cv",
+ "session_start": "2026-08-19T09:15:00+00:00",
+ "count": 84,
+ "logs": [
+  {
+   "track_id": 152,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-121",
+   "entry_at": "2026-08-19T09:16:02.479083+00:00",
+   "exit_at": null,
+   "dwell_seconds": 1.3,
+   "status": "parked"
+  },
+  {
+   "track_id": 149,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-088",
+   "entry_at": "2026-08-19T09:15:54.137417+00:00",
+   "exit_at": null,
+   "dwell_seconds": 9.7,
+   "status": "parked"
+  },
+  {
+   "track_id": 44,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-009",
+   "entry_at": "2026-08-19T09:15:45.628917+00:00",
+   "exit_at": null,
+   "dwell_seconds": 18.2,
+   "status": "parked"
+  },
+  {
+   "track_id": 44,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-017",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": "2026-08-19T09:15:42.125417+00:00",
+   "dwell_seconds": 39.9,
+   "status": "departed"
+  },
+  {
+   "track_id": 112,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-075",
+   "entry_at": "2026-08-19T09:15:29.279250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 34.5,
+   "status": "parked"
+  },
+  {
+   "track_id": 52,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-120",
+   "entry_at": "2026-08-19T09:15:22.522500+00:00",
+   "exit_at": null,
+   "dwell_seconds": 41.3,
+   "status": "parked"
+  },
+  {
+   "track_id": 82,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-087",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": "2026-08-19T09:15:21.688333+00:00",
+   "dwell_seconds": 19.4,
+   "status": "departed"
+  },
+  {
+   "track_id": 18,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-110",
+   "entry_at": "2026-08-19T09:15:19.352667+00:00",
+   "exit_at": "2026-08-19T09:15:21.187833+00:00",
+   "dwell_seconds": 1.8,
+   "status": "departed"
+  },
+  {
+   "track_id": 121,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-101",
+   "entry_at": "2026-08-19T09:15:06.589917+00:00",
+   "exit_at": null,
+   "dwell_seconds": 57.2,
+   "status": "parked"
+  },
+  {
+   "track_id": 117,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-084",
+   "entry_at": "2026-08-19T09:15:05.338667+00:00",
+   "exit_at": null,
+   "dwell_seconds": 58.5,
+   "status": "parked"
+  },
+  {
+   "track_id": 50,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-120",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": "2026-08-19T09:15:04.921583+00:00",
+   "dwell_seconds": 2.7,
+   "status": "departed"
+  },
+  {
+   "track_id": 113,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-039",
+   "entry_at": "2026-08-19T09:15:04.087417+00:00",
+   "exit_at": null,
+   "dwell_seconds": 59.7,
+   "status": "parked"
+  },
+  {
+   "track_id": 18,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-083",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": "2026-08-19T09:15:03.753750+00:00",
+   "dwell_seconds": 1.5,
+   "status": "departed"
+  },
+  {
+   "track_id": 109,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-117",
+   "entry_at": "2026-08-19T09:15:02.919583+00:00",
+   "exit_at": null,
+   "dwell_seconds": 60.9,
+   "status": "parked"
+  },
+  {
+   "track_id": 107,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-081",
+   "entry_at": "2026-08-19T09:15:02.585917+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.2,
+   "status": "parked"
+  },
+  {
+   "track_id": 105,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-068",
+   "entry_at": "2026-08-19T09:15:02.335667+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.5,
+   "status": "parked"
+  },
+  {
+   "track_id": 25,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-002",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 46,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-003",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 6,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-004",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 15,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-005",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 40,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-013",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 49,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-016",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 37,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-019",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 63,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-022",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 67,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-024",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 81,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-025",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 45,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-026",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 54,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-028",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 34,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-029",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 36,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-031",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 83,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-032",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 55,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-034",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 47,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-040",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 76,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-041",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 5,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-044",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 42,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-045",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 8,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-046",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 53,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-051",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 64,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-055",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 29,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-056",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 20,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-057",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 13,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-058",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 17,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-060",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 27,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-062",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 43,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-064",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 85,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-069",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 57,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-071",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 84,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-072",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 39,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-073",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 92,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-076",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 75,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-077",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 16,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-078",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 96,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-080",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 19,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-082",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 12,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-085",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 24,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-091",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 65,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-094",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 23,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-097",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 102,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-103",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 35,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-107",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 51,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-109",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 38,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-112",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 26,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-116",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 99,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-118",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 33,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-123",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 56,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-124",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 60,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-126",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 66,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-128",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 58,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-130",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 28,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-131",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 14,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-132",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 71,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-133",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 4,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-134",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 1,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-135",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 74,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-140",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 61,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-147",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 72,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-150",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 103,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-152",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 9,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-154",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 98,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-158",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 91,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-160",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 88,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-162",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 41,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-164",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  },
+  {
+   "track_id": 93,
+   "vehicle_type": "car",
+   "slot_code": "PARKING-A-165",
+   "entry_at": "2026-08-19T09:15:02.252250+00:00",
+   "exit_at": null,
+   "dwell_seconds": 61.6,
+   "status": "parked"
+  }
+ ]
+}

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIGIL Capstone</title>
+<style>
+  /* VIGIL tokens, Thapar palette (REDESIGN_PLAN.md section 2b). The dashboards carry their own copy. */
+  :root {
+    --bg: #F2ECE3; --surface: #FBF8F3; --surface-2: #E9E2D7; --ink: #24201D; --ink-2: #4B443E; --muted: #6E655C;
+    --line: #D4CABB; --accent: #B3141C;
+    --bar: rgba(251, 248, 243, .8); --track: rgba(128, 118, 108, .14); --thumb: #FBF8F3;
+    --up: #248A3D; --down: #AAA096;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --ease: cubic-bezier(.25, .1, .25, 1);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1B1A19; --surface: #252322; --surface-2: #302D2B; --ink: #F3EFEA; --ink-2: #D5CFC8; --muted: #9C948C;
+      --line: #4A4643; --accent: #D42F35;
+      --bar: rgba(27, 26, 25, .8); --track: rgba(128, 118, 108, .24); --thumb: #6E6862;
+      --up: #30D158; --down: #6E6862;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+         font: 17px/1.47 var(--sans); letter-spacing: -.022em; -webkit-font-smoothing: antialiased; }
+
+  header { position: relative; z-index: 1; display: flex; align-items: center; gap: 16px; height: 48px; padding: 0 16px;
+           background: var(--bar); -webkit-backdrop-filter: saturate(1.8) blur(20px); backdrop-filter: saturate(1.8) blur(20px);
+           box-shadow: inset 0 -1px 0 var(--line); }
+  .brand { font-size: 21px; font-weight: 600; letter-spacing: .01em; }
+
+  /* The slider: a segmented control, four equal segments with a thumb that slides to the selected one. */
+  .slider { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); margin-left: auto; padding: 2px;
+            background: var(--track); border-radius: 980px; }
+  .thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 4); background: var(--thumb);
+           border-radius: 980px; box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 3px 1px rgba(0, 0, 0, .04);
+           transition: transform .3s var(--ease); }
+  .slider button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 6px 16px;
+                   color: var(--ink-2); background: none; border: 0; border-radius: 980px;
+                   font: 600 13px/16px var(--sans); letter-spacing: -.01em; white-space: nowrap; cursor: pointer;
+                   transition: color .2s var(--ease); }
+  .slider button[aria-selected="true"] { color: var(--ink); }
+  .slider button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dot { width: 6px; height: 6px; flex: none; background: var(--down); border-radius: 50%; transition: background-color .2s var(--ease); }
+  .dot.up { background: var(--up); }
+
+  main { position: relative; flex: 1; }
+  /* Frames stay alive when not shown; they fade rather than cut when switching. */
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--bg); border: 0;
+           opacity: 0; visibility: hidden; transition: opacity .3s var(--ease), visibility 0s .3s; }
+  iframe.on { opacity: 1; visibility: visible; transition: opacity .3s var(--ease); }
+  .offline { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; background: var(--bg); }
+  .offline h2 { margin: 0 0 10px; font-size: 28px; line-height: 1.14; font-weight: 600; letter-spacing: .007em; }
+  .offline p { margin: 6px auto; max-width: 560px; color: var(--muted); }
+  .offline code { display: inline-block; padding: 1px 10px; color: var(--ink); background: var(--surface-2);
+                  border-radius: 980px; font: 14px/24px var(--mono); letter-spacing: 0; }
+
+  @media (prefers-reduced-motion: reduce) { .thumb, iframe, iframe.on, .slider button { transition: none; } }
+  @media (max-width: 734px) {
+    header { flex-wrap: wrap; gap: 8px; height: auto; padding: 8px 16px; }
+    .slider { width: 100%; margin-left: 0; }
+    .slider button { gap: 5px; padding: 7px 2px; }
+    .offline h2 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">VIGIL</div>
+  <div class="slider" role="tablist" aria-label="System">
+    <span class="thumb" aria-hidden="true"></span>
+    <button role="tab" data-id="vigil" data-url="home.html" title="About VIGIL">VIGIL</button>
+    <button role="tab" data-id="parking" data-url="http://127.0.0.1:8080/" data-start="parking/Launch Parking System.command"
+            title="Campus parking lot vehicle tracking"><span class="dot"></span>Parking</button>
+    <button role="tab" data-id="speed" data-url="http://localhost:8000/" data-start="speed/Start Vehicle Monitor.command"
+            title="Vehicle speed tracking and estimation"><span class="dot"></span>Speed</button>
+    <button role="tab" data-id="rfid" data-url="http://localhost:8777/" data-start="rfid/Start VIGIL.command"
+            title="RFID vehicle logging"><span class="dot"></span>RFID gate</button>
+  </div>
+</header>
+<main>
+  <div class="offline" hidden>
+    <div>
+      <h2></h2>
+      <p>Start everything with <code>Start VIGIL Capstone.command</code>, or only this system with <code class="start"></code>.</p>
+      <p>This page checks again every few seconds.</p>
+    </div>
+  </div>
+</main>
+<script>
+const tabs = [...document.querySelectorAll('[role=tab]')];
+const thumb = document.querySelector('.thumb');
+const offline = document.querySelector('.offline');
+const frames = {};   // created on first view, then kept so each system keeps its state
+const up = {};
+let current;
+
+function frameFor(tab) {
+  if (!frames[tab.dataset.id]) {
+    const f = document.createElement('iframe');
+    f.src = tab.dataset.url;
+    f.title = tab.title;
+    f.allow = 'fullscreen';   // the speed dashboard's video has a fullscreen button
+    document.querySelector('main').prepend(f);
+    f.offsetWidth;   // lay it out invisible first, so the fade-in runs on first view too
+    frames[tab.dataset.id] = f;
+  }
+  return frames[tab.dataset.id];
+}
+
+function render() {
+  if (up[current.dataset.id]) frameFor(current);
+  for (const t of tabs) frames[t.dataset.id]?.classList.toggle('on', t === current && up[t.dataset.id]);
+  offline.hidden = up[current.dataset.id] !== false;
+  offline.querySelector('h2').textContent = current.title + " isn't running";
+  offline.querySelector('.start').textContent = current.dataset.start;
+}
+
+function select(tab, focus) {
+  current = tab;
+  const i = tabs.indexOf(tab);
+  thumb.style.transform = `translateX(${i * 100}%)`;
+  tabs.forEach(t => { t.setAttribute('aria-selected', t === tab); t.tabIndex = t === tab ? 0 : -1; });
+  if (focus) tab.focus();
+  document.title = `${tab.textContent.trim()} · VIGIL Capstone`;
+  history.replaceState(null, '', '#' + tab.dataset.id);
+  try { localStorage.setItem('vigil-tab', tab.dataset.id); } catch (_) {}
+  render();
+}
+
+// Reachability only: no-cors resolves for any HTTP answer and rejects when nothing listens.
+async function check(tab) {
+  const id = tab.dataset.id, was = up[id];
+  try { await fetch(tab.dataset.url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' }); up[id] = true; }
+  catch (_) { up[id] = false; }
+  tab.querySelector('.dot')?.classList.toggle('up', up[id]);   // the VIGIL page has no status dot
+  if (was === false && up[id] && frames[id]) frames[id].src = tab.dataset.url;   // came back: reload it
+}
+async function checkAll() { await Promise.all(tabs.map(check)); render(); }
+
+tabs.forEach(t => t.addEventListener('click', () => select(t)));
+document.querySelector('.slider').addEventListener('keydown', e => {
+  const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+  if (step) select(tabs[(tabs.indexOf(current) + step + tabs.length) % tabs.length], true);
+});
+
+addEventListener('hashchange', () => {
+  const t = tabs.find(t => t.dataset.id === location.hash.slice(1));
+  if (t && t !== current) select(t);
+});
+
+let saved = location.hash.slice(1);
+try { saved ||= localStorage.getItem('vigil-tab'); } catch (_) {}
+select(tabs.find(t => t.dataset.id === saved) || tabs[0]);
+checkAll();
+setInterval(checkAll, 4000);
+</script>
+</body>
+</html>

@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Parking — Operations</title>
+<script>
+  // Dark unless the viewer chose light; set before first paint so it never flashes.
+  try { if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (_) {}
+</script>
+<!-- Doto draws the entrance board's LED digits; everything else uses the system font. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@900&display=swap" rel="stylesheet">
+<style>
+  /* VIGIL theme, Thapar palette (REDESIGN_PLAN.md section 2b, copied here so this
+     page still runs on its own): warm greys, beige in light mode, one Thapar red for
+     controls, system colours for data alone. The camera monitor and the entrance
+     board stay near-black, like the physical things they show. Dark by default,
+     light one click away. */
+  :root {
+    --accent: #D42F35; --on-accent: #FFFFFF; --free: #30D158; --taken: #FF453A;
+    --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --dots: "Doto", ui-monospace, monospace;
+    --radius: 18px;
+    --bg: #1B1A19; --surface: #252322; --surface-2: #302D2B; --hover: #302D2B;
+    --line: #3A3735; --line-2: #302D2B; --edge: transparent; --ink: #F3EFEA; --muted: #9C948C;
+    --track: rgba(128,118,108,.24); --knob: #6E6862; --shadow: rgba(0,0,0,.45);
+    --monitor: #0A0A0B; --monitor-edge: #252322;
+    --sign: #0A0A0B; --sign-edge: #302D2B; --sign-line: #302D2B;
+    --fill-track: #302D2B; --idle: #6E6862; --ok-text: #30D158;
+    --lv-wide: #30D158; --lv-plenty: #40C8E0; --lv-filling: #FFD60A; --lv-almost: #FF9F0A; --lv-full: #FF453A;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --accent: #B3141C; --free: #34C759; --taken: #FF3B30;
+    --bg: #F2ECE3; --surface: #FBF8F3; --surface-2: #F2ECE3; --hover: #F2ECE3;
+    --line: #D4CABB; --line-2: #E4DCD0; --edge: #E4DCD0; --ink: #24201D; --muted: #6E655C;
+    --track: rgba(128,118,108,.14); --knob: #FBF8F3; --shadow: rgba(60,40,20,.12);
+    --monitor: #1D1D1F; --monitor-edge: #1D1D1F;
+    --sign: #1D1D1F; --sign-edge: #3A3A3C; --sign-line: #3A3A3C;
+    --fill-track: #E4DCD0; --idle: #AAA096; --ok-text: #248A3D;
+    --lv-wide: #34C759; --lv-plenty: #30B0C7; --lv-filling: #FFCC00; --lv-almost: #FF9500; --lv-full: #FF3B30;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--ui); letter-spacing: -.01em;
+         -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; color: inherit; }
+
+  /* ---- top bar ---- */
+  .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px;
+            padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+  .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--on-accent);
+          display: grid; place-items: center; font-weight: 700; font-size: 18px; line-height: 1; }
+  .brand-name { font-weight: 600; font-size: 17px; letter-spacing: -.02em; }
+  .brand-area { color: var(--muted); font-weight: 600; font-size: 14px; padding-left: 11px;
+                border-left: 1px solid var(--line); }
+  .spacer { flex: 1; }
+
+  /* segmented control: the same as the VIGIL slider */
+  .switch { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px;
+            background: var(--track); border: 1px solid transparent; border-radius: 980px; }
+  .switch button { position: relative; z-index: 1; border: 0; background: none; cursor: pointer;
+                   padding: 7px 16px; border-radius: 980px; font-weight: 600; font-size: 14px;
+                   color: var(--muted); white-space: nowrap; transition: color .2s; }
+  .switch button[aria-checked="true"] { color: var(--ink); }
+  .switch .knob { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+                  background: var(--knob); border-radius: 980px;
+                  box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04);
+                  transition: transform .3s cubic-bezier(.25,.1,.25,1); }
+  .switch.live .knob { transform: translateX(100%); }
+  .switch.busy { opacity: .6; pointer-events: none; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; border-radius: 980px;
+         border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+         font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap;
+         transition: background-color .2s, border-color .2s; }
+  .btn:hover { border-color: var(--muted); background: var(--hover); }
+  .icon-btn { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+              border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+              transition: background-color .2s, border-color .2s; }
+  .icon-btn:hover { border-color: var(--muted); background: var(--hover); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  :root:not([data-theme="light"]) .icon-btn .moon, :root[data-theme="light"] .icon-btn .sun { display: none; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn:disabled { opacity: .6; cursor: default; }
+
+  /* download menu (a popover, placed under its button by script) */
+  .menu { position: fixed; inset: auto; margin: 0; min-width: 176px; padding: 6px;
+          border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink);
+          box-shadow: 0 12px 32px var(--shadow); }
+  .menu p { margin: 6px 10px 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .menu button { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none;
+                 color: inherit; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+  .menu button:hover, .menu button:focus-visible { background: var(--hover); outline: none; }
+
+  /* ---- layout ---- */
+  .console { max-width: 1440px; margin: 0 auto; padding: 24px; display: grid; gap: 24px;
+             grid-template-columns: minmax(0, 1fr) 368px; align-items: start; }
+  .side { display: grid; gap: 24px; }
+  .console > *, .side > * { min-width: 0; }  /* let columns shrink instead of overflowing */
+  .log { grid-column: 1 / -1; }
+
+  /* ---- camera monitor ---- */
+  .monitor { background: var(--monitor); border: 1px solid var(--monitor-edge); border-radius: var(--radius);
+             padding: 10px 10px 0; }
+  .stage { position: relative; line-height: 0; border-radius: 10px; overflow: hidden; background: #000; }
+  .stage video, .stage img#vid { width: 100%; height: auto; display: block; aspect-ratio: auto 16 / 9; }
+  .stage img#vid { aspect-ratio: auto 3 / 2; }
+  canvas#ov { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .note { position: absolute; left: 14px; top: 14px; max-width: calc(100% - 28px); display: none;
+          padding: 8px 13px; border-radius: 10px; border-left: 3px solid var(--accent);
+          background: rgba(29,29,31,.72); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+          color: #fff; font: 600 14px/1.4 var(--ui); }
+  .note.show { display: block; }
+  .tip { position: absolute; display: none; pointer-events: none; white-space: nowrap; line-height: 1.3;
+         padding: 6px 11px; border-radius: 10px; background: var(--surface); color: var(--ink);
+         font: 600 13px var(--ui); box-shadow: 0 6px 20px rgba(0,0,0,.28);
+         transform: translate(-50%, calc(-100% - 12px)); }
+  .tip span { font-weight: 600; }
+  .tip .free { color: var(--ok-text); } .tip .taken { color: var(--taken); }
+  .play { position: absolute; inset: 0; margin: auto; width: 72px; height: 72px; border-radius: 50%;
+          border: 0; background: #fff; cursor: pointer; display: none; place-items: center;
+          box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+  .play.show { display: grid; }
+  .play svg { width: 26px; height: 26px; margin-left: 4px; fill: #1D1D1F; }
+
+  .osd { display: flex; align-items: center; gap: 18px; padding: 11px 6px 12px; color: #A1A1A6;
+         font: 500 13px/1 var(--mono); white-space: nowrap; overflow: hidden; }
+  #osd-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .osd-state { display: inline-flex; align-items: center; gap: 8px; color: #fff; font-weight: 600; }
+  .osd-state i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid #A1A1A6; }
+  .osd-state.rec i { border-color: var(--taken); background: var(--taken); animation: rec 1.6s infinite; }
+  .osd-state.off i { border-color: #636366; background: #636366; }
+  @keyframes rec { 50% { opacity: .35; } }
+  .legend { display: inline-flex; gap: 14px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px;
+              vertical-align: -1px; }
+  .legend .free { background: var(--free); } .legend .taken { background: var(--taken); }
+
+  /* ---- entrance sign ---- */
+  .sign { background: var(--sign); color: #fff; border-radius: var(--radius); padding: 20px 22px 18px;
+          box-shadow: inset 0 0 0 3px var(--sign-edge); }
+  .sign-lot { font-weight: 700; font-size: 15px; letter-spacing: .16em; text-transform: uppercase; color: #F5F5F7; }
+  .sign-count { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+                margin: 14px 0 16px; }
+  /* three digit positions, like the board: unlit dots show faintly behind the lit ones */
+  .led { position: relative; min-width: 3ch; text-align: right; font: 900 108px/.8 var(--dots);
+         color: #30D158; text-shadow: 0 0 22px rgba(48,209,88,.45); font-variant-numeric: tabular-nums; }
+  .led .ghost { position: absolute; right: 0; top: 0; color: rgba(255,255,255,.08); text-shadow: none; }
+  .led .lit { position: relative; }
+  .sign-unit { font-weight: 700; font-size: 13px; letter-spacing: .16em; line-height: 1.35; text-align: right;
+               color: #D2D2D7; padding-bottom: 6px; text-transform: uppercase; }
+  .sign-status { display: flex; align-items: center; gap: 9px; padding-top: 14px;
+                 border-top: 1px solid var(--sign-line); font-weight: 600; font-size: 15px; }
+  .sign-status i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .sign.full .led { color: #FF453A; text-shadow: 0 0 22px rgba(255,69,58,.5); }
+  .sign.full .ghost, .sign.full .sign-unit { display: none; }
+  .sign.stale .led { color: #636366; text-shadow: none; }
+
+  /* ---- panels ---- */
+  .panel { background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius); }
+  .panel-hd { display: flex; align-items: center; gap: 12px; padding: 15px 20px; }
+  .panel-hd h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.022em; }
+  .meta { color: var(--muted); font: 500 13px/1 var(--mono); }
+
+  .fill { height: 8px; margin: 0 20px; border-radius: 4px; background: var(--fill-track); overflow: hidden; }
+  .fill span { display: block; height: 100%; width: 0; border-radius: 4px; transition: width .5s ease, background .5s; }
+  .figures { display: grid; grid-template-columns: 1fr 1fr; margin: 18px 20px 6px; gap: 12px; }
+  .figures dt { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .figures dd { margin: 0; font: 600 26px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+  .levels { list-style: none; margin: 10px 0 0; padding: 0 0 8px; border-top: 1px solid var(--line-2); }
+  .levels li { display: flex; align-items: center; gap: 10px; padding: 8px 20px; font-size: 14px;
+               color: var(--muted); border-left: 3px solid transparent; }
+  .levels li i { width: 8px; height: 8px; border-radius: 50%; flex: none; opacity: .55; }
+  .levels li .range { margin-left: auto; font: 500 12.5px var(--mono); }
+  .levels li.on { color: var(--ink); font-weight: 600; background: var(--surface-2); }
+  .levels li.on i { opacity: 1; }
+
+  /* ---- vehicle log ---- */
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--track); border-radius: 980px;
+         border: 1px solid transparent; }
+  .seg button { border: 0; background: none; padding: 5px 12px; border-radius: 980px; cursor: pointer;
+                font-weight: 600; font-size: 13px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--knob); color: var(--ink);
+                                     box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
+  .table-wrap { max-height: 460px; overflow: auto; border-top: 1px solid var(--line-2);
+                border-radius: 0 0 var(--radius) var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th { position: sticky; top: 0; background: var(--surface); text-align: left; white-space: nowrap;
+             padding: 10px 20px; font-size: 12px; font-weight: 600; color: var(--muted);
+             border-bottom: 1px solid var(--line-2); }
+  tbody td { padding: 11px 20px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--hover); }
+  td.mono { font-family: var(--mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  td.dim { color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; }
+  .chip.parked i { background: var(--free); } .chip.left { color: var(--muted); } .chip.left i { background: var(--idle); }
+  .empty td { padding: 36px 20px; text-align: center; color: var(--muted); white-space: normal; }
+
+  @media (max-width: 1100px) {
+    .console { grid-template-columns: 1fr; }
+    .side { grid-template-columns: 1fr 1fr; align-items: start; }
+  }
+  @media (max-width: 720px) {
+    .topbar { flex-wrap: wrap; padding: 12px 16px; gap: 12px; }
+    .brand-area { display: none; }
+    .spacer { display: none; }
+    .console { padding: 16px; gap: 16px; }
+    .side { grid-template-columns: 1fr; gap: 16px; }
+    .led { font-size: 84px; }
+    .osd { gap: 12px; }
+    .osd .legend { display: none; }
+    .panel-hd { flex-wrap: wrap; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Campus Parking operations">
+    <span class="mark" aria-hidden="true">P</span>
+    <span class="brand-name">Campus Parking</span>
+    <span class="brand-area">Operations</span>
+  </a>
+  <span class="spacer"></span>
+  <div class="switch" id="source" role="radiogroup" aria-label="Video source">
+    <span class="knob"></span>
+    <button role="radio" data-mode="recorded">Recorded</button>
+    <button role="radio" data-mode="live">Live camera</button>
+  </div>
+  <button class="btn" id="dl-btn" popovertarget="dl-menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>
+    </svg><span id="dl-label">Download</span></button>
+  <div class="menu" id="dl-menu" popover>
+    <p>Occupancy and vehicle log</p>
+    <button data-range="day">Last day</button>
+    <button data-range="week">Last week</button>
+    <button data-range="month">Last month</button>
+    <button data-range="all">All time</button>
+  </div>
+  <a class="btn" href="/calibrate/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><circle cx="12" cy="12" r="3"/>
+    </svg>Calibrate camera</a>
+  <button class="icon-btn" id="theme" aria-label="Switch theme">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>
+  </button>
+</header>
+
+<main class="console">
+  <section class="monitor" aria-label="Camera">
+    <div class="stage" id="stage">
+      <video id="vid" src="/video.mp4" muted autoplay loop playsinline></video>
+      <canvas id="ov"></canvas>
+      <button id="play" class="play" aria-label="Play the recording">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
+      </button>
+      <div class="note" id="note" role="status"></div>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="osd">
+      <span class="osd-state" id="osd-state"><i></i><span id="osd-label">Recorded</span></span>
+      <span id="osd-detail"></span>
+      <span class="spacer"></span>
+      <span class="legend"><span><i class="free"></i>Free</span><span><i class="taken"></i>Taken</span></span>
+      <span id="osd-clock"></span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="sign" id="sign">
+      <div class="sign-lot" id="sign-lot">&nbsp;</div>
+      <div class="sign-count">
+        <div class="led" aria-hidden="true"><span class="ghost">888</span><span class="lit" id="led">--</span></div>
+        <div class="sign-unit">Spaces<br>free</div>
+      </div>
+      <div class="sign-status"><i id="sign-dot"></i><span id="sign-status">Loading</span></div>
+    </div>
+
+    <section class="panel" aria-labelledby="occ-h">
+      <div class="panel-hd"><h2 id="occ-h">Occupancy</h2><span class="spacer"></span><span class="meta" id="pct">–</span></div>
+      <div class="fill"><span id="fill"></span></div>
+      <dl class="figures">
+        <div><dt>Occupied</dt><dd id="f-occ">–</dd></div>
+        <div><dt>Bays</dt><dd id="f-cap">–</dd></div>
+      </dl>
+      <ol class="levels" id="levels" aria-label="Status levels"></ol>
+    </section>
+  </aside>
+
+  <section class="panel log" aria-labelledby="log-h">
+    <div class="panel-hd">
+      <h2 id="log-h">Vehicle log</h2>
+      <span class="meta" id="log-summary"></span>
+      <span class="spacer"></span>
+      <div class="seg" id="log-filter" role="group" aria-label="Show">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="parked" aria-pressed="false">Parked</button>
+        <button data-f="departed" aria-pressed="false">Left</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Vehicle</th><th>Type</th><th>Bay</th><th>Parked at</th><th>Left at</th><th>Stayed</th><th>Status</th></tr></thead>
+        <tbody id="log-body"><tr class="empty"><td colspan="7">Loading the vehicle log</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+// The server marks the page for live mode (dashboard_server.py): the recorded
+// clip is swapped for the pipeline's MJPEG stream and bay states come from
+// /state.json instead of the precomputed timeline.
+const LIVE_MODE = document.body.dataset.live === '1';
+const $ = id => document.getElementById(id);
+if (LIVE_MODE) {
+  const img = document.createElement('img');
+  img.id = 'vid'; img.alt = 'Live camera'; img.src = '/stream.mjpg';
+  $('vid').replaceWith(img);
+  $('play').remove();
+}
+const vid = $('vid'), ov = $('ov'), ctx = ov.getContext('2d');
+
+// ---- theme: dark by default, remembered per browser ----
+function syncThemeLabel() {
+  const light = document.documentElement.dataset.theme === 'light';
+  $('theme').setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+  $('theme').title = light ? 'Dark theme' : 'Light theme';
+}
+$('theme').onclick = () => {
+  const light = document.documentElement.dataset.theme !== 'light';
+  if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('theme', light ? 'light' : 'dark'); } catch (_) {}
+  syncThemeLabel();
+};
+syncThemeLabel();
+let TL = null, frames = [], LIVE = null, STATUS = null, LOGS = [], FILTER = 'all', hover = -1;
+
+// Same names and thresholds as the mobile app (the lot_occupancy view): % full, rounded down.
+const LEVELS = [
+  { name: 'Wide open', range: '0–29%', below: 30, c: 'var(--lv-wide)' },
+  { name: 'Plenty of space', range: '30–54%', below: 55, c: 'var(--lv-plenty)' },
+  { name: 'Filling up', range: '55–79%', below: 80, c: 'var(--lv-filling)' },
+  { name: 'Almost full', range: '80–99%', below: 100, c: 'var(--lv-almost)' },
+  { name: 'Full', range: '100%', below: Infinity, c: 'var(--lv-full)' },
+];
+$('levels').innerHTML = LEVELS.map(l =>
+  `<li><i style="background:${l.c}"></i>${l.name}<span class="range">${l.range}</span></li>`).join('');
+
+// Write to the DOM only when a value changes; paint() runs every frame.
+const shown = {};
+function put(id, value, prop = 'textContent') {
+  const key = id + prop;
+  if (shown[key] === value) return;
+  shown[key] = value;
+  if (prop === 'textContent') $(id).textContent = value; else $(id).style[prop] = value;
+}
+
+// ---- source switch: the server swaps what runs behind it, then the page reloads ----
+const sw = $('source');
+sw.classList.toggle('live', LIVE_MODE);
+sw.querySelectorAll('button').forEach(b => {
+  b.setAttribute('aria-checked', String((b.dataset.mode === 'live') === LIVE_MODE));
+  b.onclick = async () => {
+    if (b.getAttribute('aria-checked') === 'true') return;
+    sw.classList.add('busy'); sw.classList.toggle('live');
+    try {
+      await fetch('/mode', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                             body: JSON.stringify({ mode: b.dataset.mode }) });
+    } finally { location.reload(); }
+  };
+});
+
+// ---- names and time ----
+const titleCase = code => code.split('-').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+function lotName() {
+  if (LIVE_MODE) {
+    const n = (LIVE && LIVE.name) || (STATUS && STATUS.lot_code) || '';
+    return /^[A-Z0-9-]+$/.test(n) ? titleCase(n) : n;  // a bare code like CAMERA-1 reads as "Camera 1"
+  }
+  return TL ? titleCase(TL.codes[0].replace(/-\d+$/, '')) : '';
+}
+const IST = { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+const clock = d => d.toLocaleTimeString('en-IN', IST);
+const mmss = s => isFinite(s) ? `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '--:--';
+setInterval(() => put('osd-clock', clock(new Date()) + ' IST'), 1000);
+put('osd-clock', clock(new Date()) + ' IST');
+
+// ---- what the feed is doing ----
+// label: the monitor's state line. note: shown over the picture, or null when
+// all is well. stale: the numbers are the last known, not current.
+function feedState() {
+  if (!LIVE_MODE) return { label: 'Recorded', cls: '', note: null, stale: false };
+  const S = STATUS;
+  if (S && !S.calibrated) return { label: 'Preview', cls: 'off', note: 'This camera isn’t calibrated yet. Use Calibrate camera to mark its bays.', stale: true, none: true };
+  if (S && S.calibrating) return { label: 'Paused', cls: 'off', note: 'Counting is paused while the camera is being calibrated.', stale: true };
+  if (S && S.error) return { label: 'Stopped', cls: 'off', note: 'Counting stopped: ' + S.error, stale: true };
+  if (!LIVE || Date.now() / 1000 - LIVE.at > 5) return { label: 'Waiting', cls: 'off', note: 'Waiting for the camera.', stale: true };
+  if (!LIVE.signal) return { label: 'Camera off', cls: 'off', note: 'Camera off. Holding the last known bays until the picture is back.', stale: true };
+  if (LIVE.held) return { label: 'Re-checking', cls: 'rec', note: 'Camera back. Re-checking bays before anything changes.', stale: false };
+  return { label: 'Live', cls: 'rec', note: null, stale: false };
+}
+
+// ---- overlay ----
+function polyOf(i) {
+  if (TL.polys) return TL.polys[i];  // live lots: each bay's real outline
+  const [x1, y1, x2, y2] = TL.rects[i];
+  return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+}
+function sizeCanvas() {
+  const r = vid.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (ov.width !== w || ov.height !== h) { ov.width = w; ov.height = h; }
+  return r;
+}
+function occupiedAt(f) {  // rightmost recorded sample at or before frame f
+  let lo = 0, hi = frames.length - 1, ans = 0;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (frames[m] <= f) { ans = m; lo = m + 1; } else hi = m - 1; }
+  return TL.samples[ans][1];
+}
+const occupiedNow = () => new Set(LIVE ? LIVE.occupied : occupiedAt(vid.currentTime * TL.fps));
+
+function paint() {
+  const st = feedState();
+  put('note', st.note || '');
+  $('note').classList.toggle('show', !!st.note);
+  put('osd-label', st.label);
+  $('osd-state').className = 'osd-state ' + st.cls;
+  if (!LIVE_MODE && TL) put('osd-detail', `${lotName()} clip · ${mmss(vid.currentTime)} / ${mmss(vid.duration)}`);
+  if (LIVE_MODE) put('osd-detail', lotName());
+
+  const r = sizeCanvas(), dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, r.height);
+  if (!TL) return;
+  const occ = occupiedNow(), sx = r.width / TL.width, sy = r.height / TL.height;
+  ctx.globalAlpha = st.stale ? 0.45 : 1;
+  for (let i = 0; i < TL.rects.length; i++) {
+    const taken = occ.has(i);
+    ctx.beginPath();
+    polyOf(i).forEach(([x, y], k) => k ? ctx.lineTo(x * sx, y * sy) : ctx.moveTo(x * sx, y * sy));
+    ctx.closePath();
+    ctx.fillStyle = taken ? 'rgba(255,69,58,.14)' : 'rgba(48,209,88,.24)';
+    ctx.strokeStyle = taken ? 'rgba(255,69,58,.85)' : '#30D158';
+    ctx.lineWidth = taken ? 1.25 : 1.75;
+    ctx.fill(); ctx.stroke();
+  }
+  if (hover >= 0 && hover < TL.rects.length) {
+    ctx.beginPath();
+    polyOf(hover).forEach(([x, y], k) => k ? ctx.lineTo(x * sx, y * sy) : ctx.moveTo(x * sx, y * sy));
+    // white, not the red accent: on this map red already means taken
+    ctx.closePath(); ctx.lineWidth = 3; ctx.strokeStyle = '#FFFFFF'; ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  if (TL.capacity) updateFigures(occ.size, TL.capacity, st.stale);
+  else updateFigures(null, null, true);
+}
+
+// ---- sign and occupancy panel ----
+function updateFigures(n, cap, stale) {
+  const sign = $('sign');
+  if (n == null) {  // camera not calibrated: nothing to count yet
+    put('led', '--'); put('sign-status', 'Not calibrated'); put('sign-dot', '#636366', 'background');
+    sign.classList.add('stale'); sign.classList.remove('full');
+    put('pct', '–'); put('f-occ', '–'); put('f-cap', '–'); put('fill', '0%', 'width');
+    $('levels').querySelectorAll('li').forEach(li => li.classList.remove('on'));
+    put('sign-lot', lotName() || ' ');
+    return;
+  }
+  const free = cap - n, pct = Math.floor(100 * n / cap);
+  const lv = free === 0 ? LEVELS[4] : LEVELS.find(l => pct < l.below);
+  put('sign-lot', lotName() || ' ');
+  put('led', free === 0 ? 'FULL' : String(free));
+  sign.classList.toggle('full', free === 0 && !stale);
+  sign.classList.toggle('stale', stale);
+  put('sign-status', stale ? 'No live data' : lv.name);
+  put('sign-dot', stale ? '#636366' : lv.c, 'background');
+  put('pct', `${pct}% full`);
+  put('f-occ', String(n)); put('f-cap', String(cap));
+  put('fill', pct + '%', 'width'); put('fill', stale ? 'var(--idle)' : lv.c, 'background');
+  const idx = LEVELS.indexOf(lv);
+  $('levels').querySelectorAll('li').forEach((li, k) => {
+    const on = k === idx && !stale;
+    li.classList.toggle('on', on);
+    li.style.borderLeftColor = on ? lv.c : 'transparent';
+  });
+}
+
+function loop() { paint(); requestAnimationFrame(loop); }
+
+// ---- hover a bay on the picture for its number and state ----
+function inside(poly, x, y) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+$('stage').addEventListener('mousemove', e => {
+  const tip = $('tip');
+  if (!TL || !TL.rects.length) { tip.style.display = 'none'; return; }
+  const r = vid.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * TL.width, y = (e.clientY - r.top) / r.height * TL.height;
+  hover = -1;
+  for (let i = 0; i < TL.rects.length; i++) if (inside(polyOf(i), x, y)) { hover = i; break; }
+  if (hover < 0) { tip.style.display = 'none'; return; }
+  const taken = occupiedNow().has(hover), bay = TL.codes[hover].split('-').pop();
+  tip.innerHTML = `Bay ${bay} · <span class="${taken ? 'taken' : 'free'}">${taken ? 'Taken' : 'Free'}</span>`;
+  tip.style.left = (e.clientX - r.left) + 'px'; tip.style.top = (e.clientY - r.top) + 'px';
+  tip.style.display = 'block';
+});
+$('stage').addEventListener('mouseleave', () => { hover = -1; $('tip').style.display = 'none'; });
+
+// ---- vehicle log ----
+const TYPES = { car: 'Car', truck: 'Truck', bus: 'Bus', motorcycle: 'Motorcycle', other: 'Other' };
+function stayed(sec) {
+  if (sec == null) return '—';
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = Math.round(sec % 60);
+  return h ? `${h}h ${m}m` : m ? `${m}m ${s}s` : `${s}s`;
+}
+function renderLogs() {
+  // The demo clip is a fixed recording: re-anchor its timestamps so the latest
+  // activity reads as now, every time the page is opened.
+  const stamps = LOGS.flatMap(r => [r.entry_at, r.exit_at]).filter(Boolean).map(Date.parse);
+  const shift = !LIVE_MODE && stamps.length ? Date.now() - Math.max(...stamps) : 0;
+  const at = iso => iso ? clock(new Date(Date.parse(iso) + shift)) : '—';
+  const parked = LOGS.filter(r => r.status === 'parked').length;
+  put('log-summary', LOGS.length ? `${LOGS.length} stays · ${parked} parked now` : '');
+  const rows = LOGS.filter(r => FILTER === 'all' || r.status === FILTER);
+  $('log-body').innerHTML = rows.map(r => `<tr>
+      <td class="mono">#${r.track_id}</td>
+      <td>${TYPES[r.vehicle_type] || r.vehicle_type || '—'}</td>
+      <td class="mono">${r.slot_code ? r.slot_code.split('-').pop() : '—'}</td>
+      <td class="mono dim">${at(r.entry_at)}</td>
+      <td class="mono dim">${at(r.exit_at)}</td>
+      <td class="mono">${stayed(r.dwell_seconds)}</td>
+      <td><span class="chip ${r.status === 'parked' ? 'parked' : 'left'}"><i></i>${r.status === 'parked' ? 'Parked' : 'Left'}</span></td>
+    </tr>`).join('') || `<tr class="empty"><td colspan="7">${
+      !LOGS.length ? (LIVE_MODE ? 'No stays yet. A vehicle is logged once it has stood still in a bay for 10 seconds.' : 'No stays in this recording.')
+      : FILTER === 'parked' ? 'No vehicles are parked right now.' : 'No vehicle has left yet.'}</td></tr>`;
+}
+$('log-filter').querySelectorAll('button').forEach(b => b.onclick = () => {
+  FILTER = b.dataset.f;
+  $('log-filter').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderLogs();
+});
+async function refreshLogs() {
+  try { LOGS = (await (await fetch('/vehicles', { cache: 'no-store' })).json()).logs || []; renderLogs(); } catch (_) {}
+}
+
+// ---- data ----
+async function pollLive() {
+  try {
+    const r = await fetch('/state.json', { cache: 'no-store' });
+    if (r.ok) LIVE = TL = await r.json();
+  } catch (_) { /* server restarting: keep the last state */ }
+  setTimeout(pollLive, 300);
+}
+async function pollStatus() {
+  try { STATUS = await (await fetch('/status', { cache: 'no-store' })).json(); } catch (_) {}
+  setTimeout(pollStatus, 2000);
+}
+
+async function boot() {
+  if (LIVE_MODE) {
+    pollStatus(); pollLive(); refreshLogs();
+    setInterval(refreshLogs, 15000);
+    requestAnimationFrame(loop);
+    return;
+  }
+  TL = await (await fetch('/timeline.json')).json();
+  frames = TL.samples.map(s => s[0]);
+  requestAnimationFrame(loop);
+  ['timeupdate', 'seeked', 'loadeddata'].forEach(ev => vid.addEventListener(ev, paint));
+
+  // Autoplay (muted) is usually allowed; when it isn't, show the play button.
+  // A blocked play() can stay pending rather than reject, so never await it.
+  const pb = $('play');
+  vid.addEventListener('playing', () => pb.classList.remove('show'));
+  vid.addEventListener('pause', () => pb.classList.add('show'));
+  pb.onclick = e => { e.stopPropagation(); vid.play(); };
+  $('stage').addEventListener('click', () => { vid.paused ? vid.play() : vid.pause(); });
+  vid.play().catch(() => pb.classList.add('show'));
+  setTimeout(() => { if (vid.paused) pb.classList.add('show'); }, 700);
+  refreshLogs();
+}
+boot();
+
+// Download: the button opens the range menu; a range saves the file.
+async function exportBlob(range) {
+  const r = await fetch('/export?range=' + range, { cache: 'no-store' });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+  return r.blob();
+}
+const DL_NAME = 'parking', DL_EXT = 'zip';
+$('dl-menu').addEventListener('toggle', e => {
+  if (e.newState !== 'open') return;
+  const b = $('dl-btn').getBoundingClientRect(), m = $('dl-menu');
+  m.style.top = b.bottom + 8 + 'px';
+  m.style.left = Math.max(8, Math.min(b.left, innerWidth - m.offsetWidth - 8)) + 'px';
+});
+$('dl-menu').addEventListener('click', async e => {
+  const range = e.target.closest('button[data-range]')?.dataset.range;
+  if (!range) return;
+  $('dl-menu').hidePopover();
+  const btn = $('dl-btn'), label = $('dl-label');
+  btn.disabled = true; label.textContent = 'Preparing…'; btn.title = '';
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await exportBlob(range));
+    a.download = `${DL_NAME}-${range === 'all' ? 'all-time' : 'last-' + range}-${new Date().toLocaleDateString('en-CA')}.${DL_EXT}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    label.textContent = 'Download';
+  } catch (err) {
+    label.textContent = 'Download failed'; btn.title = err.message;
+    setTimeout(() => { label.textContent = 'Download'; btn.title = ''; }, 4000);
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
